@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/*",
+]
+default-members = [
+    "crates/calendar_server",
+]
+[workspace.dependencies]
+axum = { version = "0.8.4", features = ["ws"] }
+chrono = { version = "0.4.41", features = ["serde"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+tokio = { version = "1.47.1", features = ["full"] }
+toml = "0.9.5"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+colorlab = { git = "https://github.com/SturdyFool10/ColorLab.git" }
+rusqlite = { version = "0.37.0", features = ["bundled"] }
+jsonwebtoken = "9.3.1"
+ansi_escapers = "0.2.0"
+
+#internal deps
+appstate = { path = "crates/appstate" }
+config = { path = "crates/config" }
+db = { path = "crates/db" }
+theme = { path = "crates/theme" }
+webserver = { path = "crates/webserver" }
+websockets = { path = "crates/websockets" }
+auth = { path = "crates/auth" }
+global_constants = { path = "crates/global_constants" }
+logging = { path = "crates/logging" }

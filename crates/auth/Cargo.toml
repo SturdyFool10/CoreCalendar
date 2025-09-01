@@ -1,0 +1,11 @@
+[package]
+name = "auth"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+db.workspace = true
+jsonwebtoken = { workspace = true }
+serde = { workspace = true }
+global_constants = { workspace = true }
+tracing = { workspace = true }
