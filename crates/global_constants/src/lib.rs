@@ -3,7 +3,7 @@
 /// project-wide constants that may be used across multiple subcrates.
 
 /// The default configuration version for the application.
-pub const DEFAULT_CONFIG_VERSION: &str = "1.0.0";
+pub const DEFAULT_CONFIG_VERSION: usize = 1;
 
 /// The default JWT expiry time in seconds (e.g., 1 hour).
 pub const DEFAULT_JWT_EXPIRY_SECONDS: usize = 3600;

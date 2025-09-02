@@ -30,3 +30,4 @@ websockets = { path = "crates/websockets" }
 auth = { path = "crates/auth" }
 global_constants = { path = "crates/global_constants" }
 logging = { path = "crates/logging" }
+configman = { path = "crates/configman" }

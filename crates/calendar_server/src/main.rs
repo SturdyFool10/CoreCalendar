@@ -1,13 +1,6 @@
-use config::Config;
-use std::path::Path;
-use tracing::*;
+use configman::ConfigMan;
 
-// Use MultiWriter from logging crate
-
-#[tokio::main]
-async fn main() {
+fn main() {
     logging::init_logging();
-    info!("trying to load config...");
-    let conf = Config::from_path(Path::new("config.json"));
-    info!("Config loaded: {:?}", conf);
+    let conf = ConfigMan::load_or_init_config("config.json");
 }

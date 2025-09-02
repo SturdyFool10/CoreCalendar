@@ -1,8 +1,7 @@
+use global_constants::DEFAULT_CONFIG_VERSION;
 use serde::{Deserialize, Serialize};
 use std::{fs, io::Write, path::Path};
 use tracing::*;
-
-const CONFIG_NATIVE_VERSION: usize = 1; //adjust this as needed, sets the current version of the config
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
@@ -12,7 +11,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            version: CONFIG_NATIVE_VERSION,
+            version: DEFAULT_CONFIG_VERSION,
         }
     }
 }
