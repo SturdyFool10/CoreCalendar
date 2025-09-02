@@ -1,17 +1,35 @@
 use global_constants::DEFAULT_CONFIG_VERSION;
+use humantime_serde;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use std::{fs, io::Write, path::Path};
 use tracing::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LogConfig {
+    #[serde(with = "humantime_serde")]
+    pub keep_for: Duration,
+}
+
+impl Default for LogConfig {
+    fn default() -> Self {
+        Self {
+            keep_for: Duration::from_secs(60 * 60 * 24 * 7), // 1 week
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
-    version: usize,
+    pub version: usize,
+    pub logs: LogConfig,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             version: DEFAULT_CONFIG_VERSION,
+            logs: LogConfig::default(),
         }
     }
 }

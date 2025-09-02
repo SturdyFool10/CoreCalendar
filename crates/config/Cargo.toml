@@ -8,3 +8,5 @@ tracing = { workspace = true }
 serde.workspace = true
 serde_json.workspace = true
 global_constants.workspace = true
+humantime.workspace = true
+humantime-serde.workspace = true

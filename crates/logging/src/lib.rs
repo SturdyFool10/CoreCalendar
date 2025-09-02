@@ -1,10 +1,16 @@
+use chrono::{Local, LocalResult, NaiveDate, NaiveTime, TimeZone};
 use global_constants::LOGS_PATH;
-use std::fs::OpenOptions;
-use std::io::{self, Write};
-use std::marker::Send;
-use std::path::PathBuf;
-use tracing_subscriber::EnvFilter;
-use tracing_subscriber::fmt::writer::MakeWriter;
+use regex::Regex;
+use std::{
+    fs::{self, OpenOptions},
+    io::{self, Write},
+    marker::Send,
+    path::{Path, PathBuf},
+};
+use tracing_subscriber::{
+    EnvFilter,
+    fmt::{format::Writer, writer::MakeWriter},
+};
 
 /// MultiWriter writes logs to both stdout and a file, stripping ANSI codes for the file.
 pub struct MultiWriter {
@@ -76,8 +82,16 @@ impl Write for MultiWriterHandle {
         Ok(())
     }
 }
+/// Custom timer for 12-hour time format with AM/PM for tracing_subscriber log output.
+struct Custom12HourTimer;
 
-/// Call this at the start of your main to initialize logging.
+impl tracing_subscriber::fmt::time::FormatTime for Custom12HourTimer {
+    fn format_time(&self, w: &mut Writer<'_>) -> std::fmt::Result {
+        let now = chrono::Local::now();
+        write!(w, "{}", now.format("[%I:%M:%S %p]"))
+    }
+}
+
 pub fn init_logging() {
     // Set warn for all dependencies by default
     let filter = EnvFilter::builder().with_default_directive(tracing::Level::WARN.into());
@@ -89,26 +103,110 @@ pub fn init_logging() {
     #[cfg(not(debug_assertions))]
     let filter = filter.parse_lossy("info");
 
+    // Use only the subcrate name as the log file name, with .log extension.
+    // Get the current date and time at initialization
+    let now = chrono::Local::now();
+    let date_str = now.format("%m-%d-%Y").to_string();
+    let time_str = now.format("%I-%M-%S_%p").to_string();
+
     let log_path = {
         let mut path = PathBuf::from(LOGS_PATH);
-        let datetime = chrono::Local::now()
-            .format("log%Y-%m-%d_%H-%M-%S.log")
-            .to_string();
-        path.push(datetime);
+        // Use CARGO_PKG_NAME for subcrate name, and include date/time for uniqueness
+        let subcrate = env!("CARGO_PKG_NAME");
+        path.push(format!("{subcrate}_{date_str}_{time_str}.log"));
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
         path
     };
 
-    eprintln!("Logging will attempt to write to: {:?}", log_path);
+    // Write the first line: "Logs start on {date} at {time}"
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+    {
+        let _ = writeln!(
+            file,
+            "Logs start on {} at {}",
+            now.format("%m-%d-%Y"),
+            now.format("%I:%M:%S %p")
+        );
+    }
     let writer = MultiWriter { log_path };
 
     if let Err(e) = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(writer)
+        .with_timer(Custom12HourTimer)
         .try_init()
     {
         eprintln!("Failed to set tracing subscriber: {}", e);
+    }
+}
+
+pub fn cleanup_old_logs<P: AsRef<Path>>(logs_dir: P, keep_for: std::time::Duration) {
+    let logs_dir = logs_dir.as_ref();
+    let now = Local::now();
+
+    // Regex for schema: {subcrate}_{MM-DD-YYYY}_{HH-MM-SS_AMPM}.log
+    // Example: calendar_server_04-27-2024_09-15-23_PM.log
+    let re = Regex::new(r"^[^_]+_(\d{2})-(\d{2})-(\d{4})_(\d{2})-(\d{2})-(\d{2})_(AM|PM)\.log$")
+        .expect("Failed to compile regex for log file schema");
+
+    if let Ok(entries) = fs::read_dir(logs_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            if let Some(fname) = path.file_name().and_then(|n| n.to_str()) {
+                if let Some(caps) = re.captures(fname) {
+                    // Parse date and time from filename
+                    let month = caps[1].parse::<u32>().ok();
+                    let day = caps[2].parse::<u32>().ok();
+                    let year = caps[3].parse::<i32>().ok();
+                    let hour = caps[4].parse::<u32>().ok();
+                    let minute = caps[5].parse::<u32>().ok();
+                    let second = caps[6].parse::<u32>().ok();
+                    let ampm = &caps[7];
+
+                    if let (
+                        Some(month),
+                        Some(day),
+                        Some(year),
+                        Some(mut hour),
+                        Some(minute),
+                        Some(second),
+                    ) = (month, day, year, hour, minute, second)
+                    {
+                        // Convert to 24-hour time
+                        if ampm == "PM" && hour != 12 {
+                            hour += 12;
+                        }
+                        if ampm == "AM" && hour == 12 {
+                            hour = 0;
+                        }
+                        let date = NaiveDate::from_ymd_opt(year, month, day);
+                        let time = NaiveTime::from_hms_opt(hour, minute, second);
+                        if let (Some(date), Some(time)) = (date, time) {
+                            let naive_dt = date.and_time(time);
+                            match Local.from_local_datetime(&naive_dt) {
+                                LocalResult::Single(file_dt) => {
+                                    let age = now
+                                        .signed_duration_since(file_dt)
+                                        .to_std()
+                                        .unwrap_or_default();
+                                    if age > keep_for {
+                                        let _ = fs::remove_file(&path);
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

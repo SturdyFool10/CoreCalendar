@@ -19,6 +19,10 @@ colorlab = { git = "https://github.com/SturdyFool10/ColorLab.git" }
 rusqlite = { version = "0.37.0", features = ["bundled"] }
 jsonwebtoken = "9.3.1"
 ansi_escapers = "0.2.0"
+humantime = "2.2.0"
+humantime-serde = "1.1.1"
+regex = "1.11.2"
+
 
 #internal deps
 appstate = { path = "crates/appstate" }

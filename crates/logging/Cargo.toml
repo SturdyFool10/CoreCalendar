@@ -9,3 +9,4 @@ tracing-subscriber.workspace = true
 chrono = { workspace = true }
 global_constants.workspace = true
 ansi_escapers = { workspace = true }
+regex.workspace = true
