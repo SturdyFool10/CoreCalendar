@@ -4,9 +4,14 @@
 //! - Authentication: compares provided hash to stored hash, returns JWT if correct.
 
 use db::{AuthUser, DatabaseConnection};
-use jsonwebtoken::{EncodingKey, Header, encode};
+use global_constants::DEFAULT_AUTH_RATE_LIMIT_PER_MINUTE;
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
 
 /// Error type for authentication operations.
 #[derive(Debug)]
@@ -26,13 +31,7 @@ struct Claims {
     sub: String,
     exp: usize,
 }
-
 /// AuthService provides secure authentication operations.
-use global_constants::{DEFAULT_AUTH_RATE_LIMIT_PER_MINUTE, DEFAULT_JWT_EXPIRY_SECONDS};
-use jsonwebtoken::{DecodingKey, Validation, decode};
-use std::collections::HashMap;
-use std::sync::Mutex;
-
 pub struct AuthService {
     db: Arc<DatabaseConnection>,
     jwt_secret: String,
@@ -130,8 +129,6 @@ impl AuthService {
 
     /// Helper to issue a JWT for a username.
     fn issue_jwt(&self, username: &str) -> Result<String, AuthError> {
-        use std::time::{SystemTime, UNIX_EPOCH};
-
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("Time went backwards")
@@ -167,7 +164,6 @@ impl AuthService {
 
     /// Per-user rate limiting (requests per minute).
     fn check_rate_limit(&self, username: &str) -> Result<(), AuthError> {
-        use std::time::{Duration, Instant};
         let mut limits = self.rate_limits.lock().unwrap();
         let now = Instant::now();
         let entry = limits.entry(username.to_string()).or_insert((0, now));
