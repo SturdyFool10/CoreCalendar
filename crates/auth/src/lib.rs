@@ -37,6 +37,7 @@ pub struct AuthService {
     jwt_secret: String,
     jwt_expiry_seconds: usize,
     rate_limits: Mutex<HashMap<String, (u32, std::time::Instant)>>, // username -> (count, window_start)
+    ip_rate_limits: Mutex<HashMap<String, (u32, std::time::Instant)>>, // ip -> (count, window_start)
 }
 
 impl AuthService {
@@ -52,6 +53,7 @@ impl AuthService {
             jwt_expiry_seconds: jwt_expiry_seconds
                 .unwrap_or(global_constants::DEFAULT_JWT_EXPIRY_SECONDS),
             rate_limits: Mutex::new(HashMap::new()),
+            ip_rate_limits: Mutex::new(HashMap::new()),
         }
     }
 
@@ -63,7 +65,9 @@ impl AuthService {
         password_hash: &str,
         salt: &str,
         email: &str,
+        ip: &str,
     ) -> Result<String, AuthError> {
+        self.check_ip_rate_limit(ip)?;
         // Check if user exists
         match self.db.get_user_by_username(username) {
             Ok(Some(_)) => return Err(AuthError::UserAlreadyExists),
@@ -75,13 +79,13 @@ impl AuthService {
         if let Err(e) = self.db.insert_user(username, password_hash, salt, email) {
             return Err(AuthError::DbError(format!("{:?}", e)));
         }
-
         // Issue JWT
         self.issue_jwt(username)
     }
 
     /// Retrieve the salt for a given username.
-    pub fn get_salt(&self, username: &str) -> Result<String, AuthError> {
+    pub fn get_salt(&self, username: &str, ip: &str) -> Result<String, AuthError> {
+        self.check_ip_rate_limit(ip)?;
         self.check_rate_limit(username)?;
         match self.db.get_salt_by_username(username) {
             Ok(Some(salt)) => Ok(salt),
@@ -96,7 +100,9 @@ impl AuthService {
         &self,
         username: &str,
         password_hash: &str,
+        ip: &str,
     ) -> Result<String, AuthError> {
+        self.check_ip_rate_limit(ip)?;
         self.check_rate_limit(username)?;
         let user = match self.db.get_user_by_username(username) {
             Ok(Some(user)) => user,
@@ -184,8 +190,31 @@ impl AuthService {
         }
     }
 
+    /// Per-IP rate limiting (requests per minute).
+    fn check_ip_rate_limit(&self, ip: &str) -> Result<(), AuthError> {
+        let mut limits = self.ip_rate_limits.lock().unwrap();
+        let now = Instant::now();
+        let entry = limits.entry(ip.to_string()).or_insert((0, now));
+        let window = Duration::from_secs(60);
+
+        if now.duration_since(entry.1) > window {
+            // Reset window
+            entry.0 = 1;
+            entry.1 = now;
+            Ok(())
+        } else {
+            if entry.0 < DEFAULT_AUTH_RATE_LIMIT_PER_MINUTE {
+                entry.0 += 1;
+                Ok(())
+            } else {
+                Err(AuthError::RateLimitExceeded)
+            }
+        }
+    }
+
     /// Optionally, get user info (without password hash or salt).
-    pub fn get_user(&self, username: &str) -> Result<Option<SafeUser>, AuthError> {
+    pub fn get_user(&self, username: &str, ip: &str) -> Result<Option<SafeUser>, AuthError> {
+        self.check_ip_rate_limit(ip)?;
         match self.db.get_user_by_username(username) {
             Ok(Some(user)) => Ok(Some(SafeUser::from(user))),
             Ok(None) => Ok(None),
