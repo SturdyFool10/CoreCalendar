@@ -115,50 +115,24 @@ impl ConfigMan {
 
         let path = path.as_ref();
 
-        // If config file does not exist, use default behavior (create and use default)
-        if !path.exists() {
-            warn!(
-                "Config not found at {:?}, using default and creating new config file",
-                path
-            );
-            let def: config::Config = config::Config::default();
-            // Try to create the parent directory if it doesn't exist
-            if let Some(parent) = path.parent() {
-                if let Err(e) = fs::create_dir_all(parent) {
-                    panic!("Failed to create config directory {:?}: {}", parent, e);
-                }
-            }
-            // Try to write the default config to the file
-            let pretty = serde_json::to_string_pretty(&def)
-                .expect("Failed to serialize default config to JSON");
-            match fs::File::create(path) {
-                Ok(mut file) => {
-                    if let Err(e) = file.write_all(pretty.as_bytes()) {
-                        panic!("Failed to write default config to file {:?}: {}", path, e);
-                    }
-                }
-                Err(e) => {
-                    panic!("Failed to create config file {:?}: {}", path, e);
-                }
-            }
-            return def;
-        }
-
         // Try to read and parse the config file
-        let data = fs::read_to_string(path)
-            .unwrap_or_else(|e| panic!("Failed to read config file {:?}: {}", path, e));
+        let data = fs::read_to_string(path).ok();
 
-        // Try to parse version field first
+        // If file doesn't exist or can't be read, or version is current, use Config::from_path
+        if data.is_none() {
+            return config::Config::from_path(path);
+        }
+        let data = data.unwrap();
+
         let version: Option<usize> = serde_json::from_str::<serde_json::Value>(&data)
             .ok()
             .and_then(|v| {
                 v.get("version")
                     .and_then(|ver| ver.as_u64().map(|n| n as usize))
             });
+
         if version == Some(DEFAULT_CONFIG_VERSION) {
-            let conf = serde_json::from_str::<config::Config>(&data)
-                .unwrap_or_else(|e| panic!("Failed to parse config file {:?}: {}", path, e));
-            return conf;
+            return config::Config::from_path(path);
         }
 
         // If version is not current, here is where you would run upgraders (if any existed)
