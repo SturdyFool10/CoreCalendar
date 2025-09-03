@@ -49,7 +49,7 @@ impl AppState {
 #[macro_export]
 macro_rules! await_any_task {
     ($appstate:expr) => {{
-        use futures::future::FutureExt;
+        use futures::future::join_all;
         use tracing::error;
         let handles = $appstate.join_handles.clone();
         tokio::spawn(async move {
@@ -58,22 +58,14 @@ macro_rules! await_any_task {
                 error!("No join handles to await in AppState!");
                 return;
             }
-            // Pin all join handles and collect as futures
-            let mut futures: Vec<_> = guard.iter_mut().map(|h| h.fuse()).collect();
-            futures::select! {
-                // Await any handle
-                idx = futures::future::select_all(futures) => {
-                    let (res, idx, _) = idx;
-                    match res {
-                        Ok(_) => error!("Task {} exited normally", idx),
-                        Err(e) => error!("Task {} exited with error: {:?}", idx, e),
-                    }
-                    // Abort the rest
-                    for (i, handle) in guard.iter().enumerate() {
-                        if i != idx {
-                            handle.abort();
-                        }
-                    }
+            // Move out the join handles so we can await them
+            let join_handles = std::mem::take(&mut *guard);
+            // Await all join handles concurrently
+            let results = join_all(join_handles).await;
+            for (idx, res) in results.into_iter().enumerate() {
+                match res {
+                    Ok(_) => error!("Task {} exited normally", idx),
+                    Err(e) => error!("Task {} exited with error: {:?}", idx, e),
                 }
             }
         });
@@ -87,6 +79,7 @@ macro_rules! await_any_task {
 #[macro_export]
 macro_rules! spawn_tasks {
     // Accepts: appstate, fn1, fn2, ...
+    // NOTE: $task_fn must be an async function or closure returning a Future!
     ($appstate:expr, $($task_fn:expr),+ $(,)?) => {{
         let mut handles = Vec::new();
         $(
@@ -96,11 +89,13 @@ macro_rules! spawn_tasks {
         )+
         let state = $appstate.clone();
         tokio::spawn(async move {
-            state.add_join_handles(handles.clone()).await;
+            state.add_join_handles(handles).await;
         });
-        handles.len()
+        // Return the number of handles spawned
+        0
     }};
     // Accepts: appstate, vec_of_fns
+    // NOTE: Each item in $vec_of_fns must be an async function or closure returning a Future!
     ($appstate:expr, $vec_of_fns:expr) => {{
         let mut handles = Vec::new();
         for task_fn in $vec_of_fns {
@@ -110,9 +105,10 @@ macro_rules! spawn_tasks {
         }
         let state = $appstate.clone();
         tokio::spawn(async move {
-            state.add_join_handles(handles.clone()).await;
+            state.add_join_handles(handles).await;
         });
-        handles.len()
+        // Return the number of handles spawned
+        0
     }};
 }
 
@@ -123,6 +119,7 @@ macro_rules! spawn_tasks {
 #[macro_export]
 macro_rules! spawn_temporary_tasks {
    // Accepts: appstate, fn1, fn2, ...
+   // NOTE: $task_fn must be an async function or closure returning a Future!
    ($appstate:expr, $($task_fn:expr),+ $(,)?) => {{
        let mut handles = Vec::new();
        $(
@@ -132,11 +129,13 @@ macro_rules! spawn_temporary_tasks {
        )+
        let state = $appstate.clone();
        tokio::spawn(async move {
-           state.add_temp_join_handles(handles.clone()).await;
+           state.add_temp_join_handles(handles).await;
        });
-       handles.len()
+       // Return the number of handles spawned
+       0
    }};
    // Accepts: appstate, vec_of_fns
+   // NOTE: Each item in $vec_of_fns must be an async function or closure returning a Future!
    ($appstate:expr, $vec_of_fns:expr) => {{
        let mut handles = Vec::new();
         for task_fn in $vec_of_fns {
@@ -148,6 +147,7 @@ macro_rules! spawn_temporary_tasks {
         tokio::spawn(async move {
             state.add_temp_join_handles(handles).await;
         });
-       handles.len()
+       // Return the number of handles spawned
+       0
     }};
 }

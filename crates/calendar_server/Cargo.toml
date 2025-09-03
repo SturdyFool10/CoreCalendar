@@ -21,3 +21,4 @@ rustls.workspace = true
 tungstenite.workspace = true
 appstate.workspace = true
 webserver.workspace = true
+futures.workspace = true
