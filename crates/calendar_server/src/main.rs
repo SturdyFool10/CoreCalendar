@@ -1,6 +1,8 @@
+use appstate::{await_any_task, spawn_tasks};
 use configman::ConfigMan;
 use global_constants::LOGS_PATH;
 use tracing::*;
+use webserver::start_web_server;
 
 fn main() {
     logging::init_logging();
@@ -8,4 +10,13 @@ fn main() {
     let conf = ConfigMan::load_or_init_config("config.json");
     info!("Checking for old logs to clean...");
     logging::cleanup_old_logs(LOGS_PATH, conf.logs.keep_for.clone());
+    let state = appstate::AppState::new(conf);
+    let count = spawn_tasks!(state, start_web_server);
+    info!(
+        "Spawned {} task{}",
+        count,
+        if count == 1 { "" } else { "s" }
+    );
+
+    await_any_task!(state);
 }

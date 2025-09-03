@@ -5,3 +5,7 @@ edition = "2024"
 
 [dependencies]
 tracing = { workspace = true }
+axum.workspace = true
+hyper.workspace = true
+rustls.workspace = true
+tungstenite.workspace = true

@@ -1,14 +1,4 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+use appstate::AppState;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+///entry point for the web server, gets a copy of state for its own use, state is Arc on everything so its a global state
+pub fn start_web_server(state: AppState) {}

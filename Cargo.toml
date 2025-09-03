@@ -7,21 +7,24 @@ default-members = [
     "crates/calendar_server",
 ]
 [workspace.dependencies]
-axum = { version = "0.8.4", features = ["ws"] }
+ansi_escapers = "0.2.0"
+axum = { version = "0.8.4", features = ["tokio", "http1", "ws", "json", "tracing"] }
 chrono = { version = "0.4.41", features = ["serde"] }
+colorlab = { git = "https://github.com/SturdyFool10/ColorLab.git" }
+humantime = "2.2.0"
+humantime-serde = "1.1.1"
+hyper = { version = "1.7.0", features = ["server", "http1", "tracing"] }
+jsonwebtoken = "9.3.1"
+regex = "1.11.2"
+rusqlite = { version = "0.37.0", features = ["bundled"] }
+rustls = { version = "0.23.31", features = ["std", "tls12"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.143"
 tokio = { version = "1.47.1", features = ["full"] }
 toml = "0.9.5"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-colorlab = { git = "https://github.com/SturdyFool10/ColorLab.git" }
-rusqlite = { version = "0.37.0", features = ["bundled"] }
-jsonwebtoken = "9.3.1"
-ansi_escapers = "0.2.0"
-humantime = "2.2.0"
-humantime-serde = "1.1.1"
-regex = "1.11.2"
+tungstenite = { version = "0.27.0", features = ["handshake", "http", "sha1", "httparse"] }
 
 
 #internal deps
