@@ -48,28 +48,60 @@ impl AppState {
 /// Usage: await_any_task!(appstate);
 #[macro_export]
 macro_rules! await_any_task {
-    ($appstate:expr) => {{
-        use futures::future::join_all;
-        use tracing::error;
-        let handles = $appstate.join_handles.clone();
-        tokio::spawn(async move {
+    ($appstate:expr) => {
+        async {
+            use tokio::sync::mpsc;
+            use tracing::error;
+            let handles = $appstate.join_handles.clone();
             let mut guard = handles.lock().await;
             if guard.is_empty() {
                 error!("No join handles to await in AppState!");
                 return;
             }
-            // Move out the join handles so we can await them
+            // Move out the join handles so we can await them and abort the rest
             let join_handles = std::mem::take(&mut *guard);
-            // Await all join handles concurrently
-            let results = join_all(join_handles).await;
-            for (idx, res) in results.into_iter().enumerate() {
+            use std::sync::Arc;
+            let handles_arc = Arc::new(tokio::sync::Mutex::new(
+                join_handles.into_iter().map(Some).collect::<Vec<_>>(),
+            ));
+
+            // Channel to notify when any task finishes
+            let (tx, mut rx) = mpsc::channel::<(usize, Result<(), tokio::task::JoinError>)>(
+                handles_arc.lock().await.len(),
+            );
+
+            for idx in 0..handles_arc.lock().await.len() {
+                let tx = tx.clone();
+                let handles_arc = handles_arc.clone();
+                tokio::spawn(async move {
+                    let mut handles = handles_arc.lock().await;
+                    if let Some(handle) = handles[idx].take() {
+                        let res = handle.await;
+                        let _ = tx.send((idx, res)).await;
+                    }
+                });
+            }
+            drop(tx); // Close sender so rx will end after all tasks
+
+            // Wait for the first task to finish
+            if let Some((idx, res)) = rx.recv().await {
                 match res {
                     Ok(_) => error!("Task {} exited normally", idx),
                     Err(e) => error!("Task {} exited with error: {:?}", idx, e),
                 }
+                // Abort the rest
+                let mut handles = handles_arc.lock().await;
+                for (i, handle_opt) in handles.iter_mut().enumerate() {
+                    if i != idx {
+                        if let Some(handle) = handle_opt.take() {
+                            handle.abort();
+                            error!("Aborted task {}", i);
+                        }
+                    }
+                }
             }
-        });
-    }};
+        }
+    };
 }
 
 /// Macro to spawn tasks and track their JoinHandles in AppState.
@@ -87,12 +119,14 @@ macro_rules! spawn_tasks {
             let handle = tokio::spawn($task_fn(state.clone()));
             handles.push(handle);
         )+
+        //count handles
+        let ct = handles.len(); //avoids borrow error
         let state = $appstate.clone();
         tokio::spawn(async move {
             state.add_join_handles(handles).await;
         });
         // Return the number of handles spawned
-        0
+        ct
     }};
     // Accepts: appstate, vec_of_fns
     // NOTE: Each item in $vec_of_fns must be an async function or closure returning a Future!
@@ -103,12 +137,14 @@ macro_rules! spawn_tasks {
             let handle = tokio::spawn(task_fn(state.clone()));
             handles.push(handle);
         }
+        //count handles
+        let ct = handles.len(); //avoids borrow error
         let state = $appstate.clone();
         tokio::spawn(async move {
             state.add_join_handles(handles).await;
         });
         // Return the number of handles spawned
-        0
+        ct
     }};
 }
 
@@ -127,12 +163,14 @@ macro_rules! spawn_temporary_tasks {
            let handle = tokio::spawn($task_fn(state.clone()));
            handles.push(handle);
        )+
+       //count handles
+       let ct = handles.len(); //avoids borrow error
        let state = $appstate.clone();
        tokio::spawn(async move {
            state.add_temp_join_handles(handles).await;
        });
        // Return the number of handles spawned
-       0
+       ct
    }};
    // Accepts: appstate, vec_of_fns
    // NOTE: Each item in $vec_of_fns must be an async function or closure returning a Future!
@@ -143,11 +181,13 @@ macro_rules! spawn_temporary_tasks {
             let handle = tokio::spawn(task_fn(state.clone()));
             handles.push(handle);
         }
+        //count handles
+        let ct = handles.len(); //avoids borrow error
         let state = $appstate.clone();
         tokio::spawn(async move {
             state.add_temp_join_handles(handles).await;
         });
        // Return the number of handles spawned
-       0
+       ct
     }};
 }

@@ -19,5 +19,5 @@ async fn main() {
         if count == 1 { "" } else { "s" }
     );
 
-    await_any_task!(state);
+    await_any_task!(state).await;
 }
