@@ -28,6 +28,8 @@ tungstenite = { version = "0.27.0", features = ["handshake", "http", "sha1", "ht
 futures = "0.3"
 futures-util = { version = "0.3.31", features = ["sink", "tokio-io", "unstable", "write-all-vectored"] }
 rmp-serde = "1.3.0"
+tokio-stream = "0.1.17"
+uuid = { version = "1.18.1", features = ["v4"] }
 
 
 #internal deps

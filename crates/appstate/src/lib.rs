@@ -5,17 +5,28 @@ use tokio::{sync::Mutex, task::JoinHandle};
 use std::collections::HashMap;
 use tokio::sync::broadcast;
 
+use uuid::Uuid;
+
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<Mutex<Config>>,
     /// Join handles for long-lived tasks (not meant to exit until app shutdown)
-    pub join_handles: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+    pub join_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     /// Join handles for temporary tasks (may exit independently), mapped by unique id
-    pub temp_join_handles: Arc<Mutex<HashMap<usize, tokio::task::JoinHandle<()>>>>,
+    pub temp_join_handles: Arc<Mutex<HashMap<usize, JoinHandle<()>>>>,
     /// Next id for temporary tasks
     pub next_temp_id: Arc<Mutex<usize>>,
     /// Global broadcast channel for messaging (binary)
     pub global_sender: broadcast::Sender<Vec<u8>>,
+    /// Active websocket connections, keyed by UUID
+    pub connections: Arc<Mutex<HashMap<Uuid, ConnectionInfo>>>,
+}
+
+use axum::extract::ws::Message;
+use tokio::sync::mpsc::UnboundedSender;
+
+pub struct ConnectionInfo {
+    pub sender: UnboundedSender<Message>,
 }
 
 impl AppState {
@@ -28,6 +39,7 @@ impl AppState {
             temp_join_handles: Arc::new(Mutex::new(HashMap::new())),
             next_temp_id: Arc::new(Mutex::new(0)),
             global_sender,
+            connections: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -35,6 +47,20 @@ impl AppState {
     pub async fn add_join_handles(&self, handles: Vec<tokio::task::JoinHandle<()>>) {
         let mut guard = self.join_handles.lock().await;
         guard.extend(handles);
+    }
+
+    /// Register a new connection and return its UUID.
+    pub async fn register_connection(&self, sender: UnboundedSender<Message>) -> Uuid {
+        let uuid = Uuid::new_v4();
+        let mut conns = self.connections.lock().await;
+        conns.insert(uuid, ConnectionInfo { sender });
+        uuid
+    }
+
+    /// Remove a connection by UUID.
+    pub async fn remove_connection(&self, uuid: &Uuid) {
+        let mut conns = self.connections.lock().await;
+        conns.remove(uuid);
     }
 
     /// Send a message to the global broadcast channel.

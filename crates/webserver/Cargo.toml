@@ -16,3 +16,4 @@ tokio.workspace = true
 global_constants.workspace = true
 futures-util.workspace = true
 rmp-serde.workspace = true
+uuid.workspace = true

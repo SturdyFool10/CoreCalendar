@@ -55,32 +55,62 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl
     ws.on_upgrade(move |socket| websocket_handler(socket, state))
 }
 
-async fn websocket_handler(mut socket: WebSocket, _state: AppState) {
-    while let Some(Ok(msg)) = socket.recv().await {
+use futures_util::{SinkExt, StreamExt};
+use tokio::sync::mpsc;
+
+async fn websocket_handler(socket: WebSocket, state: AppState) {
+    // Create a channel for sending messages to this socket from other tasks
+    let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
+
+    // Register a new connection and get its UUID
+    let conn_id = state.register_connection(tx.clone()).await;
+    info!("WebSocket connection registered: {conn_id}");
+
+    // Split the socket into sender and receiver
+    let (mut ws_sender, mut ws_receiver) = socket.split();
+
+    // Spawn a task to forward messages from the channel to the socket
+    let sender_task = tokio::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            if ws_sender.send(msg).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    // Main message loop
+    while let Some(Ok(msg)) = ws_receiver.next().await {
         match msg {
             Message::Text(txt) => {
                 // Echo text messages for now
-                let _ = socket.send(Message::Text(txt)).await;
+                let _ = tx.send(Message::Text(txt));
             }
             Message::Binary(data) => {
                 // Stub: handle binary messages here
                 // For now, just echo the binary data back
-                let _ = socket.send(Message::Binary(data)).await;
+                let _ = tx.send(Message::Binary(data));
             }
             Message::Ping(payload) => {
                 // Respond to ping with pong
-                let _ = socket.send(Message::Pong(payload)).await;
+                let _ = tx.send(Message::Pong(payload));
             }
             Message::Pong(_) => {
                 // Optionally handle pong (usually no-op)
             }
             Message::Close(frame) => {
                 // Optionally handle close frame
-                let _ = socket.send(Message::Close(frame)).await;
+                let _ = tx.send(Message::Close(frame));
                 break;
             }
         }
     }
+
+    // Cleanup: remove connection from AppState
+    state.remove_connection(&conn_id).await;
+    info!("WebSocket connection cleaned up: {conn_id}");
+
+    // Ensure sender task is finished
+    let _ = sender_task.await;
 }
 
 /// Print fancy listen address messaging for the user.

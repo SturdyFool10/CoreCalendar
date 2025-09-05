@@ -4,8 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+appstate.workspace = true
+futures-util.workspace = true
+rmp-serde.workspace = true
+serde.workspace = true
+tokio.workspace = true
 tracing = { workspace = true }
 axum.workspace = true
 hyper.workspace = true
 rustls.workspace = true
 tungstenite.workspace = true
+tokio-stream.workspace = true
+uuid.workspace = true
