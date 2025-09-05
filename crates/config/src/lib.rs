@@ -6,10 +6,29 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Duration;
 use tracing::*;
+
+///this file specifies the configs and their defaults, as well as the logic to load them from a file or create a new one if it doesn't exist, the defaults are all
+/// designed to be safe and secure for a local only webserver with authentication enabled by default, the user can decide how lax they want security to be
+/// but as a knowledgable person it is my job to make sure the defaults are locked down well enough to prevent accidental exposure to the internet by someone
+/// who is less knowledgable
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NetworkConfig {
     pub interface: String,
     pub port: u16,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AuthConfig {
+    pub require_login: bool,
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            require_login: true,
+        }
+    }
 }
 
 impl Default for NetworkConfig {
@@ -40,6 +59,7 @@ pub struct Config {
     pub version: usize,
     pub logs: LogConfig,
     pub network: NetworkConfig,
+    pub auth: AuthConfig,
 }
 
 impl Default for Config {
@@ -48,6 +68,7 @@ impl Default for Config {
             version: DEFAULT_CONFIG_VERSION,
             logs: LogConfig::default(),
             network: NetworkConfig::default(),
+            auth: AuthConfig::default(),
         }
     }
 }

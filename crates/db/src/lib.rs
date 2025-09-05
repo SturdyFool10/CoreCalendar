@@ -2,10 +2,10 @@ use rusqlite::{Connection, OptionalExtension, params};
 use std::error::Error;
 use std::path::Path;
 
-mod sql;
+pub mod sql;
 
 pub struct DatabaseConnection {
-    conn: Connection,
+    pub conn: Connection,
 }
 
 impl DatabaseConnection {
@@ -26,6 +26,50 @@ impl DatabaseConnection {
         self.conn
             .execute_batch(sql::AUTH_SCHEMA)
             .unwrap_or_else(|e| panic!("Invalid SQL in AUTH_SCHEMA: {}", e));
+    }
+
+    /// --- PERMISSIONS API ---
+
+    /// Assign a permission to a user.
+    pub fn assign_permission(&self, user_id: i64, permission: &str) -> Result<(), rusqlite::Error> {
+        self.conn.execute(
+            sql::permissions::PERMISSIONS_INSERT,
+            params![user_id, permission],
+        )?;
+        Ok(())
+    }
+
+    /// Remove a permission from a user.
+    pub fn remove_permission(&self, user_id: i64, permission: &str) -> Result<(), rusqlite::Error> {
+        self.conn.execute(
+            sql::permissions::PERMISSIONS_REMOVE,
+            params![user_id, permission],
+        )?;
+        Ok(())
+    }
+
+    /// Check if a user has a specific permission.
+    pub fn check_permission(
+        &self,
+        user_id: i64,
+        permission: &str,
+    ) -> Result<bool, rusqlite::Error> {
+        let mut stmt = self.conn.prepare(sql::permissions::PERMISSIONS_CHECK)?;
+        let mut rows = stmt.query(params![user_id, permission])?;
+        Ok(rows.next()?.is_some())
+    }
+
+    /// List all permissions for a user.
+    pub fn list_permissions(&self, user_id: i64) -> Result<Vec<String>, rusqlite::Error> {
+        let mut stmt = self.conn.prepare(sql::permissions::PERMISSIONS_LIST)?;
+        let rows = stmt.query_map(params![user_id], |row| row.get::<_, String>(0))?;
+        let mut result = Vec::new();
+        for row in rows {
+            if let Ok(perm) = row {
+                result.push(perm);
+            }
+        }
+        Ok(result)
     }
 
     /// Insert a new user into authentication table

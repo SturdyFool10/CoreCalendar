@@ -12,3 +12,5 @@ pub const AUTH_SELECT_BY_USERNAME: &str = include_str!("authentication_select_by
 pub const AUTH_DELETE_BY_USERNAME: &str = include_str!("authentication_delete_by_username.sql");
 pub const AUTH_SELECT_SALT_BY_USERNAME: &str =
     include_str!("authentication_select_salt_by_username.sql");
+
+pub mod permissions;

@@ -8,23 +8,23 @@ use std::io::Write;
 use tracing::*;
 
 ///config upgrader macro: allows for easy construction of a macro upgrader implimentation using a macro
-
+///
 ///@params
-
+///
 ///name: Identifyier: Example: V1toV2
-
+///
 /// old: Type, should be a struct version of every Config version you support
-
+///
 /// new: Type, should be a struct version of the new config your upgrader outputs
-
+///
 /// min: usize, should represent the minimum version your updater works with
-
+///
 /// max: usize, should represent the maximum version your updater works with
-
+///
 /// target: usize, used to tell us what version config this converts to
-
+///
 /// upgrade_fn: closure that takes one parameter: the old config type and returns the new config type, this is the code that does the upgrade
-
+///
 #[macro_export]
 
 macro_rules! config_upgrader {
