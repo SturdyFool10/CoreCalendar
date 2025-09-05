@@ -1,10 +1,8 @@
+use axum::extract::ws::Message;
 use config::Config;
-use std::sync::Arc;
-use tokio::{sync::Mutex, task::JoinHandle};
-
 use std::collections::HashMap;
-use tokio::sync::broadcast;
-
+use std::sync::Arc;
+use tokio::{sync::Mutex, sync::broadcast, sync::mpsc::UnboundedSender, task::JoinHandle};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -21,9 +19,6 @@ pub struct AppState {
     /// Active websocket connections, keyed by UUID
     pub connections: Arc<Mutex<HashMap<Uuid, ConnectionInfo>>>,
 }
-
-use axum::extract::ws::Message;
-use tokio::sync::mpsc::UnboundedSender;
 
 pub struct ConnectionInfo {
     pub sender: UnboundedSender<Message>,

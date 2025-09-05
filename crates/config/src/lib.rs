@@ -1,8 +1,10 @@
 use global_constants::DEFAULT_CONFIG_VERSION;
 use humantime_serde;
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::io::Write;
+use std::path::Path;
 use std::time::Duration;
-use std::{fs, io::Write, path::Path};
 use tracing::*;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NetworkConfig {

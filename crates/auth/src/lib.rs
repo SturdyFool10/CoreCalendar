@@ -7,11 +7,9 @@ use db::{AuthUser, DatabaseConnection};
 use global_constants::DEFAULT_AUTH_RATE_LIMIT_PER_MINUTE;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
-};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// Error type for authentication operations.
 #[derive(Debug)]

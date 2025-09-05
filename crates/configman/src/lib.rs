@@ -1,40 +1,65 @@
 use global_constants::DEFAULT_CONFIG_VERSION;
+
 use serde_json;
-use std::{any::Any, fs, io::Write};
+
+use std::any::Any;
+use std::fs;
+use std::io::Write;
 use tracing::*;
+
 ///config upgrader macro: allows for easy construction of a macro upgrader implimentation using a macro
+
 ///@params
+
 ///name: Identifyier: Example: V1toV2
+
 /// old: Type, should be a struct version of every Config version you support
+
 /// new: Type, should be a struct version of the new config your upgrader outputs
+
 /// min: usize, should represent the minimum version your updater works with
+
 /// max: usize, should represent the maximum version your updater works with
+
 /// target: usize, used to tell us what version config this converts to
+
 /// upgrade_fn: closure that takes one parameter: the old config type and returns the new config type, this is the code that does the upgrade
+
 #[macro_export]
+
 macro_rules! config_upgrader {
     (
+
         $name:ident,
+
         $old:ty,
+
         $new:ty,
+
         $min:expr, $max:expr, $target:expr,
+
         $upgrade_fn:expr
+
     ) => {
         pub struct $name;
 
         impl $crate::ConfigUpdater for $name {
             type OldConfig = $old;
+
             type NewConfig = $new;
 
             fn min_version(&self) -> u32 {
                 $min
             }
+
             fn max_version(&self) -> u32 {
                 $max
             }
+
             fn target_version(&self) -> u32 {
                 $target
             }
+
             fn upgrade(&self, old: $old) -> $new {
                 ($upgrade_fn)(old)
             }

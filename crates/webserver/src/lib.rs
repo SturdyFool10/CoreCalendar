@@ -1,7 +1,4 @@
 use appstate::AppState;
-use tracing::*;
-
-///entry point for the web server, gets a copy of state for its own use, state is Arc on everything so its a global state
 use axum::{
     Router,
     extract::{
@@ -12,8 +9,12 @@ use axum::{
     routing::get,
     serve,
 };
+use futures_util::{SinkExt, StreamExt};
 use std::net::SocketAddr;
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::mpsc};
+use tracing::*;
+
+///entry point for the web server, gets a copy of state for its own use, state is Arc on everything so its a global state
 
 const INDEX_HTML: &str = include_str!("./html_src/index.html");
 const MAIN_JS: &str = include_str!("./html_src/main.js");
@@ -62,9 +63,6 @@ async fn style_css() -> impl IntoResponse {
 async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| websocket_handler(socket, state))
 }
-
-use futures_util::{SinkExt, StreamExt};
-use tokio::sync::mpsc;
 
 async fn websocket_handler(socket: WebSocket, state: AppState) {
     // Create a channel for sending messages to this socket from other tasks

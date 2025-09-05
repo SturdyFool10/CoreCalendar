@@ -1,5 +1,6 @@
 use rusqlite::{Connection, OptionalExtension, params};
-use std::{error::Error, path::Path};
+use std::error::Error;
+use std::path::Path;
 
 mod sql;
 
