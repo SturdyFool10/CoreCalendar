@@ -1,6 +1,7 @@
 use appstate::{await_any_task, spawn_tasks};
 use configman::ConfigMan;
 use global_constants::LOGS_PATH;
+use logging::test_panic;
 use tracing::*;
 use webserver::start_web_server;
 

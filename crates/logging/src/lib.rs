@@ -1,4 +1,8 @@
 use chrono::{Local, LocalResult, NaiveDate, NaiveTime, TimeZone};
+use once_cell::sync::OnceCell;
+
+/// Macro for logging fatal errors (crash-level), matches tracing's error! macro flexibility.
+/// Usage: fatal!("message {}", arg); fatal!(target: "mycrate", "message {}", arg);
 use global_constants::LOGS_PATH;
 use regex::Regex;
 use std::{
@@ -109,6 +113,7 @@ pub fn init_logging() {
     let date_str = now.format("%m-%d-%Y").to_string();
     let time_str = now.format("%I-%M-%S_%p").to_string();
 
+    static LOG_FILE_PATH: OnceCell<PathBuf> = OnceCell::new();
     let log_path = {
         let mut path = PathBuf::from(LOGS_PATH);
         // Use CARGO_PKG_NAME for subcrate name, and include date/time for uniqueness
@@ -117,6 +122,8 @@ pub fn init_logging() {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
+        // Store the log path in the static for panic hook access
+        let _ = LOG_FILE_PATH.set(path.clone());
         path
     };
 
@@ -143,6 +150,91 @@ pub fn init_logging() {
     {
         eprintln!("Failed to set tracing subscriber: {}", e);
     }
+
+    /// Set a panic hook that logs panics using tracing::error! and [FATAL] prefix, including stacktrace.
+    pub fn set_panic_hook() {
+        use chrono::Local;
+        use colored::Colorize;
+        use std::backtrace::Backtrace;
+        use std::panic;
+        let default_hook = std::panic::take_hook();
+        static CRATE_NAME: &str = env!("CARGO_PKG_NAME");
+        std::panic::set_hook(Box::new(move |panic_info| {
+            let thread_name = std::thread::current()
+                .name()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "<unnamed>".to_string());
+            let panic_msg = match panic_info.payload().downcast_ref::<&str>() {
+                Some(s) => *s,
+                None => match panic_info.payload().downcast_ref::<String>() {
+                    Some(s) => s.as_str(),
+                    None => "Box<Any>",
+                },
+            };
+            let location = panic_info.location();
+            let msg = match location {
+                Some(loc) => format!(
+                    "Panic occurred in thread '{}': {}\nAt {}:{}",
+                    thread_name,
+                    panic_msg,
+                    loc.file(),
+                    loc.line()
+                ),
+                None => format!("Panic occurred in thread '{}': {}", thread_name, panic_msg),
+            };
+
+            // Format time as [HH:MM:SS AM/PM]
+            let now = Local::now();
+            let time_str = now.format("[%I:%M:%S %p]").to_string();
+
+            // Color for FATAL (bright red) using colored crate
+            let fatal_color = "FATAL".red().bold();
+            let faded_time = time_str.dimmed();
+            let faded_crate = CRATE_NAME.dimmed();
+            let faded_colon = ":".dimmed();
+
+            // Print the main panic message with faded time, crate, and colon, reset color for message
+            eprintln!(
+                "{} {} {}{} {}",
+                faded_time, fatal_color, faded_crate, faded_colon, msg
+            );
+
+            // Print the stacktrace, each line as FATAL, faded time/crate/colon, reset for line
+            let backtrace = Backtrace::force_capture();
+            let backtrace_str = format!("{}", backtrace);
+            for line in backtrace_str.lines() {
+                eprintln!(
+                    "{} {} {}{} {}",
+                    faded_time, fatal_color, faded_crate, faded_colon, line
+                );
+            }
+
+            // Also append the colorless version to the main log file for post-mortem visibility
+            if let Some(log_path) = LOG_FILE_PATH.get() {
+                if let Ok(mut file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(log_path)
+                {
+                    use std::io::Write;
+                    let _ = writeln!(file, "{} FATAL {}: {}", time_str, CRATE_NAME, msg);
+                    for line in backtrace_str.lines() {
+                        let _ = writeln!(file, "{} FATAL {}: {}", time_str, CRATE_NAME, line);
+                    }
+                }
+            }
+
+            // Optionally call the default hook to also print to stderr (for default panic output)
+            default_hook(panic_info);
+        }));
+    }
+
+    set_panic_hook();
+}
+
+/// Function to deliberately cause a panic for testing the panic hook and logging.
+pub fn test_panic() {
+    panic!("This is a test panic from logging::test_panic()");
 }
 
 pub fn cleanup_old_logs<P: AsRef<Path>>(logs_dir: P, keep_for: std::time::Duration) {

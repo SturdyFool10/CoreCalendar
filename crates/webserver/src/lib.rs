@@ -25,9 +25,17 @@ pub async fn start_web_server(state: AppState) {
         .route("/main.js", get(main_js))
         .route("/style.css", get(style_css))
         .route("/ws", get(ws_handler))
-        .with_state(state);
+        .with_state(state.clone());
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
+    // Get interface and port from config in AppState
+    let config_guard = state.config.lock().await;
+    let interface = config_guard.network.interface.clone();
+    let port = config_guard.network.port;
+    drop(config_guard);
+
+    let addr = format!("{}:{}", interface, port)
+        .parse::<SocketAddr>()
+        .expect("Invalid interface or port in config");
 
     log_listen_address(addr);
 

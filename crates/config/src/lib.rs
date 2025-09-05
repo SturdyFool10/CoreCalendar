@@ -4,6 +4,20 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use std::{fs, io::Write, path::Path};
 use tracing::*;
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NetworkConfig {
+    pub interface: String,
+    pub port: u16,
+}
+
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        Self {
+            interface: "127.0.0.1".to_string(),
+            port: 8080,
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LogConfig {
@@ -23,6 +37,7 @@ impl Default for LogConfig {
 pub struct Config {
     pub version: usize,
     pub logs: LogConfig,
+    pub network: NetworkConfig,
 }
 
 impl Default for Config {
@@ -30,6 +45,7 @@ impl Default for Config {
         Self {
             version: DEFAULT_CONFIG_VERSION,
             logs: LogConfig::default(),
+            network: NetworkConfig::default(),
         }
     }
 }
