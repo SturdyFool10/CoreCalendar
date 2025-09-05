@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tokio::{sync::Mutex, task::JoinHandle};
 
 use std::collections::HashMap;
+use tokio::sync::broadcast;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -13,16 +14,20 @@ pub struct AppState {
     pub temp_join_handles: Arc<Mutex<HashMap<usize, tokio::task::JoinHandle<()>>>>,
     /// Next id for temporary tasks
     pub next_temp_id: Arc<Mutex<usize>>,
+    /// Global broadcast channel for messaging (binary)
+    pub global_sender: broadcast::Sender<Vec<u8>>,
 }
 
 impl AppState {
-    /// Create a new AppState with empty join handle lists.
+    /// Create a new AppState with empty join handle lists and a global broadcast channel.
     pub fn new(config: Config) -> Self {
+        let (global_sender, _) = broadcast::channel(1024);
         AppState {
             config: Arc::new(Mutex::new(config)),
             join_handles: Arc::new(Mutex::new(Vec::new())),
             temp_join_handles: Arc::new(Mutex::new(HashMap::new())),
             next_temp_id: Arc::new(Mutex::new(0)),
+            global_sender,
         }
     }
 
@@ -30,6 +35,19 @@ impl AppState {
     pub async fn add_join_handles(&self, handles: Vec<tokio::task::JoinHandle<()>>) {
         let mut guard = self.join_handles.lock().await;
         guard.extend(handles);
+    }
+
+    /// Send a message to the global broadcast channel.
+    pub fn send_global_message(
+        &self,
+        msg: Vec<u8>,
+    ) -> Result<usize, broadcast::error::SendError<Vec<u8>>> {
+        self.global_sender.send(msg)
+    }
+
+    /// Subscribe to the global broadcast channel.
+    pub fn subscribe_global_messages(&self) -> broadcast::Receiver<Vec<u8>> {
+        self.global_sender.subscribe()
     }
 
     /// Add a list of join handles to the app state's temp_join_handles list.

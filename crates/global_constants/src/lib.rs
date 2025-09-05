@@ -16,3 +16,5 @@ pub const APP_NAME: &str = "FamilyCalendarRS";
 
 /// The default path for logs.
 pub const LOGS_PATH: &str = "./logs";
+
+pub const HTML_SRC_FOLDER: &str = "./html_src/";

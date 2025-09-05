@@ -1,6 +1,7 @@
 use global_constants::DEFAULT_CONFIG_VERSION;
 use serde_json;
 use std::{any::Any, fs, io::Write};
+use tracing::*;
 ///config upgrader macro: allows for easy construction of a macro upgrader implimentation using a macro
 ///@params
 ///name: Identifyier: Example: V1toV2
@@ -111,7 +112,7 @@ impl ConfigMan {
     /// If the version is not current, attempts to upgrade (future).
     /// Panics on unrecoverable errors.
     pub fn load_or_init_config<P: AsRef<std::path::Path>>(path: P) -> config::Config {
-        use tracing::warn;
+        use tracing::*;
 
         let path = path.as_ref();
 
