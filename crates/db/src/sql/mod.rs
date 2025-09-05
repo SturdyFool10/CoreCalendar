@@ -13,4 +13,9 @@ pub const AUTH_DELETE_BY_USERNAME: &str = include_str!("authentication_delete_by
 pub const AUTH_SELECT_SALT_BY_USERNAME: &str =
     include_str!("authentication_select_salt_by_username.sql");
 
+pub mod calendar;
+pub mod event;
 pub mod permissions;
+pub mod recurring_event;
+
+pub const USER_GLOBAL_PERMISSIONS_SCHEMA: &str = include_str!("user_global_permissions.sql");

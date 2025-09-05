@@ -9,16 +9,30 @@ pub struct DatabaseConnection {
 }
 
 impl DatabaseConnection {
+    /// Open a database connection and initialize all schemas.
     pub fn from_path(path: &Path) -> Result<Self, Box<dyn Error>> {
-        if !path.exists() {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Database file not found: {:?}", path),
-            )));
-        } else {
-            let db = Connection::open(path)?;
-            Ok(Self { conn: db })
-        }
+        let db = Connection::open(path)?;
+        let conn = Self { conn: db };
+        conn.init_all_schemas()?;
+        Ok(conn)
+    }
+
+    /// Initialize all schemas (idempotent, safe to call multiple times)
+    pub fn init_all_schemas(&self) -> Result<(), rusqlite::Error> {
+        // Authentication schema
+        self.conn.execute_batch(sql::AUTH_SCHEMA)?;
+        // Calendar schema
+        self.conn.execute_batch(sql::calendar::CALENDAR_SCHEMA)?;
+        self.conn
+            .execute_batch(sql::calendar::CALENDAR_PERMISSIONS_SCHEMA)?;
+        // Event schema
+        self.conn.execute_batch(sql::event::EVENT_SCHEMA)?;
+        // Recurring event schema
+        self.conn.execute_batch(sql::recurring_event::SCHEMA)?;
+        // User global permissions schema
+        self.conn
+            .execute_batch(sql::USER_GLOBAL_PERMISSIONS_SCHEMA)?;
+        Ok(())
     }
 
     /// Initialize the authentication table schema
@@ -151,12 +165,91 @@ impl DatabaseConnection {
 }
 
 /// Struct representing a user in the authentication table
+
 pub struct AuthUser {
     pub id: i64,
+
     pub username: String,
+
     pub password_hash: String,
+
     pub salt: String,
+
     pub email: String,
+
     pub created_at: String,
+
     pub updated_at: String,
+}
+
+/// Struct representing a calendar
+use chrono::{DateTime, Utc};
+use colorlab::Color;
+use humantime::Duration as HumanDuration;
+
+pub struct Calendar {
+    pub id: i64,
+    pub name: String,
+    pub color: Color,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Struct representing a calendar permission for a user
+pub struct CalendarPermission {
+    pub user_id: i64,
+    pub calendar_id: i64,
+    pub can_admin: bool,
+    pub can_view: bool,
+    pub can_read: bool,
+    pub can_add_event: bool,
+    pub can_modify_event: bool,
+    pub can_add_recurring_event: bool,
+    pub can_modify_recurring_event: bool,
+}
+
+/// Struct representing an event in a calendar
+pub struct Event {
+    pub id: i64,
+    pub calendar_id: i64,
+    pub title: String,
+    pub description: Option<String>,
+    pub start_time: DateTime<Utc>,
+    pub end_time: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Struct representing a recurring event in a calendar
+
+pub struct RecurringEvent {
+    pub id: i64,
+
+    pub calendar_id: i64,
+
+    pub title: String,
+
+    pub description: Option<String>,
+
+    pub start_time: DateTime<Utc>,
+
+    pub end_time: DateTime<Utc>,
+
+    pub recurrence_type: String, // e.g. "daily", "weekly", etc.
+
+    pub recurrence_interval: i64,
+
+    pub recurrence_count: Option<i64>, // None = infinite
+
+    pub recurrence_duration: Option<HumanDuration>,
+
+    pub created_at: DateTime<Utc>,
+
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Struct representing a user's global permissions (e.g., global admin)
+pub struct UserGlobalPermissions {
+    pub user_id: i64,
+    pub is_global_admin: bool,
 }

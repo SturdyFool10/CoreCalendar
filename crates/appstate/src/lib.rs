@@ -1,5 +1,7 @@
 use axum::extract::ws::Message;
 use config::Config;
+use db;
+use permissions;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::{sync::Mutex, sync::broadcast, sync::mpsc::UnboundedSender, task::JoinHandle};
@@ -8,6 +10,10 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<Mutex<Config>>,
+    /// Database connection, initialized at startup
+    pub database: Arc<tokio::sync::Mutex<db::DatabaseConnection>>,
+    /// Permissions manager, initialized at startup (wrapped in Arc for Clone)
+    pub permissions: Arc<permissions::PermissionsManager<permissions::DbPermissionBackend>>,
     /// Join handles for long-lived tasks (not meant to exit until app shutdown)
     pub join_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     /// Join handles for temporary tasks (may exit independently), mapped by unique id
@@ -25,11 +31,24 @@ pub struct ConnectionInfo {
 }
 
 impl AppState {
-    /// Create a new AppState with empty join handle lists and a global broadcast channel.
+    /// Create a new AppState with initialized database and permissions system.
     pub fn new(config: Config) -> Self {
         let (global_sender, _) = broadcast::channel(1024);
+
+        // Initialize database connection and run all schema initialization
+        let db_path = std::path::Path::new(&config.database.path);
+        let database =
+            db::DatabaseConnection::from_path(db_path).expect("Failed to initialize database");
+        let database = Arc::new(tokio::sync::Mutex::new(database));
+
+        // Initialize permissions system using the database backend
+        let permissions_backend = permissions::DbPermissionBackend::new(database.clone());
+        let permissions = Arc::new(permissions::PermissionsManager::new(permissions_backend));
+
         AppState {
             config: Arc::new(Mutex::new(config)),
+            database,
+            permissions,
             join_handles: Arc::new(Mutex::new(Vec::new())),
             temp_join_handles: Arc::new(Mutex::new(HashMap::new())),
             next_temp_id: Arc::new(Mutex::new(0)),

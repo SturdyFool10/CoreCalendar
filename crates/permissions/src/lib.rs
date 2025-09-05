@@ -78,7 +78,6 @@ impl InMemoryPermissionBackend {
 }
 
 #[async_trait]
-#[async_trait]
 impl PermissionBackend for InMemoryPermissionBackend {
     async fn assign_permission(&self, user: UserId, permission: Permission) {
         let mut perms = self.user_permissions.lock().await;
@@ -119,7 +118,6 @@ impl DbPermissionBackend {
     }
 }
 
-#[async_trait]
 #[async_trait]
 impl PermissionBackend for DbPermissionBackend {
     async fn assign_permission(&self, user: UserId, permission: Permission) {

@@ -54,12 +54,26 @@ impl Default for LogConfig {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DatabaseConfig {
+    pub path: String,
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            path: "database.db".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub version: usize,
     pub logs: LogConfig,
     pub network: NetworkConfig,
     pub auth: AuthConfig,
+    pub database: DatabaseConfig,
 }
 
 impl Default for Config {
@@ -69,6 +83,7 @@ impl Default for Config {
             logs: LogConfig::default(),
             network: NetworkConfig::default(),
             auth: AuthConfig::default(),
+            database: DatabaseConfig::default(),
         }
     }
 }

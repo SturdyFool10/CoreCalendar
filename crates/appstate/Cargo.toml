@@ -9,3 +9,5 @@ uuid.workspace = true
 tracing = { workspace = true }
 config.workspace = true
 tokio.workspace = true
+db = { workspace = true }
+permissions = { workspace = true }
