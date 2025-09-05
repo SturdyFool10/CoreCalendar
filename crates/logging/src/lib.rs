@@ -156,7 +156,6 @@ pub fn init_logging() {
         use chrono::Local;
         use colored::Colorize;
         use std::backtrace::Backtrace;
-        use std::panic;
         let default_hook = std::panic::take_hook();
         static CRATE_NAME: &str = env!("CARGO_PKG_NAME");
         std::panic::set_hook(Box::new(move |panic_info| {
