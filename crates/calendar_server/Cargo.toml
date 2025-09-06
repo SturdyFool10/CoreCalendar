@@ -22,3 +22,4 @@ tungstenite.workspace = true
 appstate.workspace = true
 webserver.workspace = true
 futures.workspace = true
+tower-http = { workspace = true, features = ["fs"] }

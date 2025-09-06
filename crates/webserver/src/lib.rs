@@ -1,32 +1,38 @@
 use appstate::AppState;
+use axum::http::StatusCode;
 use axum::{
     Router,
     extract::{
         State,
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
-    response::{Html, IntoResponse},
+    response::IntoResponse,
     routing::get,
     serve,
 };
 use futures_util::{SinkExt, StreamExt};
 use std::net::SocketAddr;
 use tokio::{net::TcpListener, sync::mpsc};
+use tower_http::services::ServeDir;
 use tracing::*;
 
 ///entry point for the web server, gets a copy of state for its own use, state is Arc on everything so its a global state
 
-const INDEX_HTML: &str = include_str!("./html_src/index.html");
-const MAIN_JS: &str = include_str!("./html_src/main.js");
-const STYLE_CSS: &str = include_str!("./html_src/style.css");
-
 pub async fn start_web_server(state: AppState) {
+    let static_dir = "crates/webserver/html_src/out";
     let app = Router::new()
-        .route("/", get(index_html))
-        .route("/main.js", get(main_js))
-        .route("/style.css", get(style_css))
         .route("/ws", get(ws_handler))
-        .with_state(state.clone());
+        .with_state(state.clone())
+        .fallback_service(
+            ServeDir::new(static_dir)
+                .append_index_html_on_directories(true)
+                .precompressed_gzip()
+                .precompressed_br()
+                .precompressed_deflate()
+                .fallback(axum::routing::get(|| async {
+                    (StatusCode::NOT_FOUND, "File not found")
+                })),
+        );
 
     // Get interface and port from config in AppState
     let config_guard = state.config.lock().await;
@@ -46,18 +52,6 @@ pub async fn start_web_server(state: AppState) {
     serve(listener, app.into_make_service())
         .await
         .expect("Failed to start Axum server");
-}
-
-async fn index_html() -> impl IntoResponse {
-    Html(INDEX_HTML)
-}
-
-async fn main_js() -> impl IntoResponse {
-    ([("Content-Type", "application/javascript")], MAIN_JS)
-}
-
-async fn style_css() -> impl IntoResponse {
-    ([("Content-Type", "text/css")], STYLE_CSS)
 }
 
 async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
