@@ -13,7 +13,7 @@
             <div class="toolbar">
                 <button id="menu-btn" class="menu-btn">☰</button>
 
-                <div class="date-navigation">
+                <div class="date-navigation desktop-only">
                     <button id="prev-btn" class="nav-btn">‹</button>
                     <div class="date-selector">
                         <span id="current-date">January 2025</span>
@@ -24,7 +24,11 @@
                     <button id="next-btn" class="nav-btn">›</button>
                 </div>
 
-                <div class="view-controls">
+                <div class="view-controls desktop-only">
+                    <div id="toolbar-timezone-container" style="display: inline-flex; align-items: center; margin-right: 1rem">
+                        <label for="view-timezone" style="font-size: 0.95rem; font-weight: 500; margin-right: 0.5rem">Timezone:</label>
+                        <select id="view-timezone" style="padding: 0.25rem 0.5rem; border-radius: 0.25rem; border: 1px solid #ccc; font-size: 0.95rem"></select>
+                    </div>
                     <button id="day-view" class="view-btn active">Day</button>
                     <button id="week-view" class="view-btn">Week</button>
                     <button id="month-view" class="view-btn">Month</button>
@@ -56,6 +60,30 @@
                 <div class="menu-content">
                     <h2>Calendar Menu</h2>
 
+                    <!-- Mobile Date Selector and Navigation -->
+                    <div class="menu-section mobile-only" style="margin-bottom: 1rem">
+                        <div class="section-content" style="display: block">
+                            <div id="side-date-navigation" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 1rem">
+                                <button id="side-prev-btn" class="nav-btn">‹</button>
+                                <div class="date-selector">
+                                    <span id="side-current-date">January 2025</span>
+                                    <select id="side-date-picker" class="date-picker">
+                                        <!-- Options populated by JS -->
+                                    </select>
+                                </div>
+                                <button id="side-next-btn" class="nav-btn">›</button>
+                            </div>
+                            <div id="side-timezone-container" style="margin-bottom: 1rem">
+                                <label for="side-view-timezone" style="font-size: 0.95rem; font-weight: 500; margin-right: 0.5rem">Timezone:</label>
+                                <select id="side-view-timezone" style="padding: 0.25rem 0.5rem; border-radius: 0.25rem; border: 1px solid #ccc; font-size: 0.95rem"></select>
+                            </div>
+                            <div id="side-view-controls" style="display: flex; gap: 0.5rem; margin-bottom: 1rem">
+                                <button id="side-day-view" class="view-btn active">Day</button>
+                                <button id="side-week-view" class="view-btn">Week</button>
+                                <button id="side-month-view" class="view-btn">Month</button>
+                            </div>
+                        </div>
+                    </div>
                     <!-- Create Event Section -->
                     <div class="menu-section">
                         <button class="section-toggle" data-target="create-event">
@@ -95,6 +123,10 @@
                                         <label>Start Time</label>
                                         <input type="time" id="event-start-time" required />
                                     </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="event-timezone">Timezone</label>
+                                    <select id="event-timezone"></select>
                                 </div>
 
                                 <!-- Added toggle for duration vs end date/time -->
@@ -247,5 +279,105 @@
         </div>
 
         <script src="calendar.js"></script>
+        <script>
+            // --- Timezone Dropdown Population and Detection ---
+            const IANATimezones = ["UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Moscow", "Asia/Tokyo", "Asia/Shanghai", "Asia/Kolkata", "Australia/Sydney", "Pacific/Auckland"];
+            function detectUserTimezone() {
+                return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+            }
+            function populateTimezoneDropdown() {
+                const tzSelect = document.getElementById("event-timezone");
+                if (tzSelect) {
+                    tzSelect.innerHTML = "";
+                    IANATimezones.forEach((tz) => {
+                        const opt = document.createElement("option");
+                        opt.value = tz;
+                        opt.textContent = tz;
+                        tzSelect.appendChild(opt);
+                    });
+                    const detected = detectUserTimezone();
+                    tzSelect.value = IANATimezones.includes(detected) ? detected : "UTC";
+                }
+                // For week/month view timezone dropdown (desktop)
+                const viewTzSelect = document.getElementById("view-timezone");
+                if (viewTzSelect) {
+                    viewTzSelect.innerHTML = "";
+                    IANATimezones.forEach((tz) => {
+                        const opt = document.createElement("option");
+                        opt.value = tz;
+                        opt.textContent = tz;
+                        viewTzSelect.appendChild(opt);
+                    });
+                    const detected = detectUserTimezone();
+                    viewTzSelect.value = IANATimezones.includes(detected) ? detected : "UTC";
+                }
+                // For week/month view timezone dropdown (mobile/side menu)
+                const sideTzSelect = document.getElementById("side-view-timezone");
+                if (sideTzSelect) {
+                    sideTzSelect.innerHTML = "";
+                    IANATimezones.forEach((tz) => {
+                        const opt = document.createElement("option");
+                        opt.value = tz;
+                        opt.textContent = tz;
+                        sideTzSelect.appendChild(opt);
+                    });
+                    const detected = detectUserTimezone();
+                    sideTzSelect.value = IANATimezones.includes(detected) ? detected : "UTC";
+                }
+            }
+            document.addEventListener("DOMContentLoaded", populateTimezoneDropdown);
+
+            // --- Mobile/desktop view control sync ---
+            function syncViewControls() {
+                // Mobile view controls
+                const sideDay = document.getElementById("side-day-view");
+                const sideWeek = document.getElementById("side-week-view");
+                const sideMonth = document.getElementById("side-month-view");
+                // Desktop view controls
+                const day = document.getElementById("day-view");
+                const week = document.getElementById("week-view");
+                const month = document.getElementById("month-view");
+                if (sideDay && day) {
+                    sideDay.onclick = () => day.click();
+                    day.onclick = () => sideDay.classList.add("active");
+                }
+                if (sideWeek && week) {
+                    sideWeek.onclick = () => week.click();
+                    week.onclick = () => sideWeek.classList.add("active");
+                }
+                if (sideMonth && month) {
+                    sideMonth.onclick = () => month.click();
+                    month.onclick = () => sideMonth.classList.add("active");
+                }
+            }
+            document.addEventListener("DOMContentLoaded", syncViewControls);
+
+            // --- Timezone dropdown sync (desktop <-> mobile) ---
+            function syncTimezoneDropdowns() {
+                const desktopTz = document.getElementById("view-timezone");
+                const sideTz = document.getElementById("side-view-timezone");
+                function sync(from, to) {
+                    if (from && to) {
+                        to.value = from.value;
+                    }
+                }
+                if (desktopTz && sideTz) {
+                    desktopTz.addEventListener("change", () => sync(desktopTz, sideTz));
+                    sideTz.addEventListener("change", () => sync(sideTz, desktopTz));
+                }
+            }
+            document.addEventListener("DOMContentLoaded", syncTimezoneDropdowns);
+        </script>
+        <script>
+            // JS to hide .mobile-only elements on desktop and show on mobile
+            function updateMobileOnlyVisibility() {
+                const isMobile = window.matchMedia("(max-width: 48rem)").matches;
+                document.querySelectorAll(".mobile-only").forEach((el) => {
+                    el.style.display = isMobile ? "block" : "none";
+                });
+            }
+            window.addEventListener("resize", updateMobileOnlyVisibility);
+            document.addEventListener("DOMContentLoaded", updateMobileOnlyVisibility);
+        </script>
     </body>
 </html>

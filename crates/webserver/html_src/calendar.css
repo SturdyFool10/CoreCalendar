@@ -1,8 +1,20 @@
 /* Reset and Base Styles */
+
 * {
     margin: 0;
+
     padding: 0;
+
     box-sizing: border-box;
+
+    user-select: none;
+}
+
+/* Allow text selection in input, textarea, and select */
+input,
+textarea,
+select {
+    user-select: text !important;
 }
 
 body {
@@ -105,6 +117,15 @@ body {
     padding: 0.5rem 0.75rem;
     border-radius: 0.25rem;
     transition: background 0.2s;
+    width: 18vw;
+    min-width: 10rem;
+    max-width: 60vw;
+    display: inline-block;
+    text-align: center;
+    box-sizing: border-box;
+    white-space: nowrap; /* Prevent wrapping */
+    overflow: visible; /* Prevent ellipsis */
+    text-overflow: unset; /* Prevent ellipsis */
 }
 
 #current-date:hover {
@@ -383,6 +404,31 @@ body {
 /* Form Styles */
 .form-group {
     margin-bottom: 0.9375rem;
+}
+
+/* Timezone dropdown styling */
+.timezone-group,
+.week-timezone-group,
+.month-timezone-group {
+    margin-bottom: 0.9375rem;
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#event-timezone,
+#week-timezone,
+#month-timezone {
+    width: auto;
+    min-width: 10rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
 }
 
 /* Add Event Button fixed to bottom of create event menu */
@@ -757,10 +803,6 @@ textarea {
     border-right: none;
 }
 
-.month-week:last-child .month-day {
-    border-bottom: none;
-}
-
 .month-day.other-month {
     color: var(--text-secondary);
     background: var(--bg-tertiary);
@@ -842,8 +884,85 @@ textarea {
         margin-left: 0;
     }
 
+    /* Hide everything in the toolbar except menu button and theme toggle on mobile */
+    .toolbar > .date-navigation {
+        display: none !important;
+    }
+    .toolbar > .view-controls,
+    .toolbar #toolbar-timezone-container {
+        display: none !important;
+    }
+    .toolbar > .menu-btn {
+        display: inline-flex !important;
+    }
+
+    /* Hide mobile-only controls on desktop */
+    @media (min-width: 48.01rem) {
+        .mobile-only {
+            display: none !important;
+        }
+    }
+
+    /* Show mobile-only controls on mobile */
+    @media (max-width: 48rem) {
+        .mobile-only {
+            display: block !important;
+        }
+    }
+
     .view-controls {
         margin-left: 0;
+    }
+
+    /* Style for side menu date selector and nav on mobile */
+    .side-menu .menu-content #side-date-navigation {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .side-menu .menu-content #side-date-navigation .date-selector {
+        min-width: 6rem;
+        max-width: 60vw;
+        font-size: 1rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+        text-align: center;
+        box-sizing: border-box;
+        white-space: nowrap;
+        overflow: visible;
+        text-overflow: unset;
+    }
+    .side-menu .menu-content #side-date-navigation .nav-btn {
+        font-size: 1.25rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 0.25rem;
+        border: 1px solid var(--border-color);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .side-menu .menu-content #side-date-navigation .nav-btn:hover {
+        background: var(--bg-tertiary);
+    }
+
+    /* Responsive date selector and theme toggle for mobile */
+    @media (max-width: 48rem) {
+        #current-date {
+            min-width: 6rem;
+            max-width: 50vw;
+            font-size: 1rem;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+        .theme-toggle {
+            margin-left: 0.5rem;
+        }
+        .toolbar {
+            gap: 0.5rem;
+        }
     }
 
     .date-navigation {

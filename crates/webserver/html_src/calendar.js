@@ -20,19 +20,23 @@ class CalendarApp {
     this.updateDateDisplay();
     this.renderCurrentView();
     this.updateCurrentTimeLine();
-    this.updateEventPastFutureStyles();
 
-    // Update current time line and event styles every 500ms (2 times per second)
-    setInterval(() => {
-      this.updateCurrentTimeLine();
-      this.updateEventPastFutureStyles();
-    }, 500);
+    // Update current time line every 500ms (2 times per second)
+    setInterval(() => this.updateCurrentTimeLine(), 500);
 
-    // Update current time line and event styles on viewport resize
+    // Update current time line and re-render events on viewport resize
     window.addEventListener("resize", () => {
       this.updateCurrentTimeLine();
-      this.updateEventPastFutureStyles();
+      this.renderCurrentView();
     });
+
+    // Listen for timezone changes in week/month view
+    const viewTzSelect = document.getElementById("view-timezone");
+    if (viewTzSelect) {
+      viewTzSelect.addEventListener("change", () => {
+        this.renderCurrentView();
+      });
+    }
   }
 
   setupEventListeners() {
@@ -44,9 +48,29 @@ class CalendarApp {
       button.addEventListener("click", (e) => this.switchView(e.target.id.replace("-view", "")));
     });
 
-    // Date navigation
+    // Date navigation (desktop)
     document.getElementById("prev-btn").addEventListener("click", () => this.navigateDate(-1));
     document.getElementById("next-btn").addEventListener("click", () => this.navigateDate(1));
+
+    // Date navigation (mobile/side menu)
+    const sidePrevBtn = document.getElementById("side-prev-btn");
+    const sideNextBtn = document.getElementById("side-next-btn");
+    if (sidePrevBtn) sidePrevBtn.addEventListener("click", () => this.navigateDate(-1));
+    if (sideNextBtn) sideNextBtn.addEventListener("click", () => this.navigateDate(1));
+
+    // Date picker sync (desktop and mobile)
+    const datePicker = document.getElementById("date-picker");
+    const sideDatePicker = document.getElementById("side-date-picker");
+    if (datePicker && sideDatePicker) {
+      datePicker.addEventListener("change", (e) => {
+        sideDatePicker.value = e.target.value;
+        datePicker.dispatchEvent(new Event("input")); // trigger any listeners
+      });
+      sideDatePicker.addEventListener("change", (e) => {
+        datePicker.value = e.target.value;
+        sideDatePicker.dispatchEvent(new Event("input")); // trigger any listeners
+      });
+    }
 
     document.getElementById("theme-toggle").addEventListener("click", () => this.toggleTheme());
 
@@ -252,7 +276,10 @@ class CalendarApp {
         break;
     }
 
+    // Update both desktop and mobile date selectors
     document.getElementById("current-date").textContent = displayText;
+    const sideCurrentDate = document.getElementById("side-current-date");
+    if (sideCurrentDate) sideCurrentDate.textContent = displayText;
   }
 
   renderCurrentView() {
@@ -396,34 +423,58 @@ class CalendarApp {
       event.remove();
     });
 
+    // Use selected timezone for display if available
+    const viewTzSelect = document.getElementById("view-timezone");
+    const displayTz = viewTzSelect ? viewTzSelect.value : Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Convert UTC events to display timezone for rendering
     const dayEvents = this.getEventsForDate(date);
     const now = new Date();
 
     // Group events by time conflicts
     const eventGroups = this.groupConflictingEvents(dayEvents);
 
-    eventGroups.forEach((group) => {
+    eventGroups.forEach((group, groupIdx) => {
       const groupWidth = group.length;
+      // Debug print for group width and event titles
+      console.log(`[WeekView] Group ${groupIdx}: width=${groupWidth}, events=[${group.map((ev) => ev.title).join(", ")}]`);
 
       group.forEach((event, index) => {
+        // Debug print for event splitting logic
+        console.log(`[WeekView] Event "${event.title}" in group of width ${groupWidth}, index ${index}`);
         const calendar = this.calendars[event.calendar];
         if (!calendar) {
           // Skip events with invalid or missing calendar
           return;
         }
-        const eventStart = new Date(event.startDate);
-        const eventEnd = new Date(event.endDate);
+        // Convert UTC to display timezone for rendering
+        const eventStart = convertUTCToTZ(event.startDate, displayTz);
+        const eventEnd = convertUTCToTZ(event.endDate, displayTz);
 
         const startHour = eventStart.getHours();
         const startMinute = eventStart.getMinutes();
         const duration = (eventEnd - eventStart) / (1000 * 60); // minutes
 
-        // Calculate position based on viewport height for day view
-        const totalMinutesInDay = 24 * 60;
-        const eventMinutes = startHour * 60 + startMinute;
-        const availableHeight = window.innerHeight - 64; // toolbar height
-        const top = (eventMinutes / totalMinutesInDay) * availableHeight;
-        const height = Math.max((duration / totalMinutesInDay) * availableHeight, 20); // minimum height
+        // If event starts before today, start at top
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0, 0, 0, 0);
+        let eventMinutes = startHour * 60 + startMinute;
+        let eventDuration = duration;
+        if (eventStart < startOfDay) {
+          eventMinutes = 0;
+          eventDuration = (Math.min(eventEnd, new Date(startOfDay.getTime() + 24 * 60 * 60000)) - startOfDay) / (1000 * 60);
+        }
+        // If event ends after today, stretch to bottom
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (eventEnd > endOfDay) {
+          eventDuration = (endOfDay - new Date(eventStart > startOfDay ? eventStart : startOfDay)) / (1000 * 60);
+        }
+
+        const availableHeight = window.innerHeight - 64 - 60; // toolbar + header
+        const top = (eventMinutes / (24 * 60)) * availableHeight;
+        // Add 2px to height if event ends after today to hide border-radius
+        const height = Math.max((eventDuration / (24 * 60)) * availableHeight, 20) + (eventEnd > endOfDay ? 2 : 0);
 
         const isPast = eventEnd < now;
         const backgroundColor = isPast ? "transparent" : calendar.color;
@@ -447,6 +498,7 @@ class CalendarApp {
           eventElement.style.left = `calc(${leftPosition}% + ${padding * index}rem)`;
           eventElement.style.width = `calc(${widthPerEvent}% - ${padding}rem)`;
         } else {
+          // Explicitly clear any previous split styles for single events
           eventElement.style.left = "0";
           eventElement.style.width = "100%";
           eventElement.style.right = "0";
@@ -456,6 +508,17 @@ class CalendarApp {
         eventElement.setAttribute("data-end", eventEnd.toISOString());
         eventElement.setAttribute("data-color", calendar.color);
 
+        // Hide top border-radius if event starts before today
+        if (eventStart < startOfDay) {
+          eventElement.style.borderTopLeftRadius = "0";
+          eventElement.style.borderTopRightRadius = "0";
+        }
+        // Hide bottom border-radius if event ends after today
+        if (eventEnd > endOfDay) {
+          eventElement.style.borderBottomLeftRadius = "0";
+          eventElement.style.borderBottomRightRadius = "0";
+        }
+
         const eventTitleElement = document.createElement("div");
         eventTitleElement.className = "event-title";
         eventTitleElement.textContent = event.title;
@@ -463,7 +526,7 @@ class CalendarApp {
 
         const eventTimeElement = document.createElement("div");
         eventTimeElement.className = "event-time";
-        eventTimeElement.textContent = `${this.formatTime(eventStart)} - ${this.formatTime(eventEnd)}`;
+        eventTimeElement.textContent = `${this.formatTime(eventStart, displayTz)} - ${this.formatTime(eventEnd, displayTz)}`;
         eventElement.appendChild(eventTimeElement);
 
         container.appendChild(eventElement);
@@ -475,13 +538,18 @@ class CalendarApp {
     const dayEvents = this.getEventsForDate(date);
 
     const now = new Date();
+    // Use selected timezone for display if available
+    const viewTzSelect = document.getElementById("view-timezone");
+    const displayTz = viewTzSelect ? viewTzSelect.value : Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     dayEvents.forEach((event) => {
       // Show all events per day, skip if calendar is invalid
       const calendar = this.calendars[event.calendar];
       if (!calendar) return;
       const eventElement = document.createElement("div");
       eventElement.className = "month-event";
-      const eventEnd = new Date(event.endDate);
+      // Convert UTC to display timezone for rendering
+      const eventEnd = convertUTCToTZ(event.endDate, displayTz);
       const isPast = eventEnd < now;
       if (isPast) {
         eventElement.style.backgroundColor = "transparent";
@@ -505,10 +573,17 @@ class CalendarApp {
   }
 
   getEventsForDate(date) {
-    const dateStr = date.toDateString();
+    // Return all events that overlap with the given date (for multi-day events)
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
     return this.events.filter((event) => {
-      const eventDate = new Date(event.startDate);
-      return eventDate.toDateString() === dateStr;
+      const eventStart = new Date(event.startDate);
+      const eventEnd = new Date(event.endDate);
+      // Event overlaps if it starts before the end of the day and ends after the start of the day
+      return eventStart <= endOfDay && eventEnd >= startOfDay;
     });
   }
 
@@ -552,23 +627,33 @@ class CalendarApp {
       event.remove();
     });
 
+    // Use selected timezone for display if available
+    const viewTzSelect = document.getElementById("view-timezone");
+    const displayTz = viewTzSelect ? viewTzSelect.value : Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Convert UTC events to display timezone for rendering
     const dayEvents = this.getEventsForDate(date);
     const now = new Date();
 
     // Group events by time conflicts
     const eventGroups = this.groupConflictingEvents(dayEvents);
 
-    eventGroups.forEach((group) => {
+    eventGroups.forEach((group, groupIdx) => {
       const groupWidth = group.length;
+      // Debug print for group width and event titles
+      console.log(`[WeekView] Group ${groupIdx}: width=${groupWidth}, events=[${group.map((ev) => ev.title).join(", ")}]`);
 
       group.forEach((event, index) => {
+        // Debug print for event splitting logic
+        console.log(`[WeekView] Event "${event.title}" in group of width ${groupWidth}, index ${index}`);
         const calendar = this.calendars[event.calendar];
         if (!calendar) {
           // Skip events with invalid or missing calendar
           return;
         }
-        const eventStart = new Date(event.startDate);
-        const eventEnd = new Date(event.endDate);
+        // Convert UTC to display timezone for rendering
+        const eventStart = convertUTCToTZ(event.startDate, displayTz);
+        const eventEnd = convertUTCToTZ(event.endDate, displayTz);
 
         const startHour = eventStart.getHours();
         const startMinute = eventStart.getMinutes();
@@ -576,10 +661,27 @@ class CalendarApp {
 
         // Calculate position based on viewport height for week view
         const totalMinutesInDay = 24 * 60;
-        const eventMinutes = startHour * 60 + startMinute;
+        let eventMinutes = startHour * 60 + startMinute;
+        let eventDuration = duration;
+
+        // If event starts before today, start at top
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0, 0, 0, 0);
+        if (eventStart < startOfDay) {
+          eventMinutes = 0;
+          eventDuration = (Math.min(eventEnd, new Date(startOfDay.getTime() + totalMinutesInDay * 60000)) - startOfDay) / (1000 * 60);
+        }
+        // If event ends after today, stretch to bottom
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (eventEnd > endOfDay) {
+          eventDuration = (endOfDay - new Date(eventStart > startOfDay ? eventStart : startOfDay)) / (1000 * 60);
+        }
+
         const availableHeight = window.innerHeight - 64 - 60; // toolbar + header
         const top = (eventMinutes / totalMinutesInDay) * availableHeight;
-        const height = Math.max((duration / totalMinutesInDay) * availableHeight, 20); // minimum height
+        // Add 2px to height if event ends after today to hide border-radius
+        const height = Math.max((eventDuration / totalMinutesInDay) * availableHeight, 20) + (eventEnd > endOfDay ? 2 : 0);
 
         const isPast = eventEnd < now;
         const backgroundColor = isPast ? "transparent" : calendar.color;
@@ -603,6 +705,7 @@ class CalendarApp {
           eventElement.style.left = `calc(${leftPosition}% + ${padding * index}rem)`;
           eventElement.style.width = `calc(${widthPerEvent}% - ${padding}rem)`;
         } else {
+          // Explicitly clear any previous split styles for single events
           eventElement.style.left = "0";
           eventElement.style.width = "100%";
           eventElement.style.right = "0";
@@ -612,6 +715,17 @@ class CalendarApp {
         eventElement.setAttribute("data-end", eventEnd.toISOString());
         eventElement.setAttribute("data-color", calendar.color);
 
+        // Hide top border-radius if event starts before today
+        if (eventStart < startOfDay) {
+          eventElement.style.borderTopLeftRadius = "0";
+          eventElement.style.borderTopRightRadius = "0";
+        }
+        // Hide bottom border-radius if event ends after today
+        if (eventEnd > endOfDay) {
+          eventElement.style.borderBottomLeftRadius = "0";
+          eventElement.style.borderBottomRightRadius = "0";
+        }
+
         const eventTitleElement = document.createElement("div");
         eventTitleElement.className = "event-title";
         eventTitleElement.textContent = event.title;
@@ -619,60 +733,12 @@ class CalendarApp {
 
         const eventTimeElement = document.createElement("div");
         eventTimeElement.className = "event-time";
-        eventTimeElement.textContent = `${this.formatTime(eventStart)} - ${this.formatTime(eventEnd)}`;
+        eventTimeElement.textContent = `${this.formatTime(eventStart, displayTz || Intl.DateTimeFormat().resolvedOptions().timeZone)} - ${this.formatTime(eventEnd, displayTz || Intl.DateTimeFormat().resolvedOptions().timeZone)}`;
         eventElement.appendChild(eventTimeElement);
+
         container.appendChild(eventElement);
       });
     });
-  }
-
-  // Updates the outline/background of all visible events in day/week view in real time
-  updateEventPastFutureStyles() {
-    const now = new Date();
-
-    // Day view
-    if (this.currentView === "day") {
-      document.querySelectorAll("#day-view-container .event").forEach((eventEl) => {
-        const start = eventEl.getAttribute("data-start");
-        const end = eventEl.getAttribute("data-end");
-        if (!end) return;
-        const eventEnd = new Date(end);
-        const isPast = eventEnd < now;
-        if (isPast && !eventEl.classList.contains("past")) {
-          eventEl.classList.remove("future");
-          eventEl.classList.add("past");
-          eventEl.style.backgroundColor = "transparent";
-          eventEl.style.color = eventEl.getAttribute("data-color") || "#000";
-        } else if (!isPast && !eventEl.classList.contains("future")) {
-          eventEl.classList.remove("past");
-          eventEl.classList.add("future");
-          eventEl.style.backgroundColor = eventEl.getAttribute("data-color") || "#000";
-          eventEl.style.color = "white";
-        }
-      });
-    }
-
-    // Week view
-    if (this.currentView === "week") {
-      document.querySelectorAll("#week-view-container .event").forEach((eventEl) => {
-        const start = eventEl.getAttribute("data-start");
-        const end = eventEl.getAttribute("data-end");
-        if (!end) return;
-        const eventEnd = new Date(end);
-        const isPast = eventEnd < now;
-        if (isPast && !eventEl.classList.contains("past")) {
-          eventEl.classList.remove("future");
-          eventEl.classList.add("past");
-          eventEl.style.backgroundColor = "transparent";
-          eventEl.style.color = eventEl.getAttribute("data-color") || "#000";
-        } else if (!isPast && !eventEl.classList.contains("future")) {
-          eventEl.classList.remove("past");
-          eventEl.classList.add("future");
-          eventEl.style.backgroundColor = eventEl.getAttribute("data-color") || "#000";
-          eventEl.style.color = "white";
-        }
-      });
-    }
   }
 
   updateCurrentTimeLine() {
@@ -801,8 +867,14 @@ class CalendarApp {
       const start = new Date(`${startDate}T${startTime}`);
       const end = new Date(start.getTime() + (hours * 60 + minutes) * 60000);
 
-      document.getElementById("event-end-date").value = end.toISOString().split("T")[0];
-      document.getElementById("event-end-time").value = end.toTimeString().slice(0, 5);
+      console.log("[calculateEndTime] start:", start, "end:", end, "hours:", hours, "minutes:", minutes);
+
+      if (!isNaN(end.getTime())) {
+        document.getElementById("event-end-date").value = end.toISOString().split("T")[0];
+        document.getElementById("event-end-time").value = end.toTimeString().slice(0, 5);
+      } else {
+        console.warn("[calculateEndTime] Invalid end date calculated!", end);
+      }
     }
   }
 
@@ -816,20 +888,54 @@ class CalendarApp {
     }
 
     const formData = new FormData(e.target);
+    const tz = document.getElementById("event-timezone") ? document.getElementById("event-timezone").value : Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const startDateStr = `${document.getElementById("event-start-date").value}T${document.getElementById("event-start-time").value}`;
+    const endDateStr = `${document.getElementById("event-end-date").value}T${document.getElementById("event-end-time").value}`;
+
+    // Convert local time in selected timezone to UTC ISO 8601
+    function toUTCISOString(localDateStr, timezone) {
+      // This works for most modern browsers (not IE) and most timezones
+      try {
+        // Parse as if in the selected timezone, then get UTC ISO string
+        const d = new Date(new Date(localDateStr + ":00").toLocaleString("en-US", { timeZone: timezone }));
+        // The above gives a Date object in UTC corresponding to the local time in the selected timezone
+        // Now, get the ISO string (which is always UTC)
+        return d.toISOString();
+      } catch (e) {
+        // Fallback: treat as local time and convert to UTC
+        return new Date(localDateStr + ":00").toISOString();
+      }
+    }
+
+    const startDateISO = toUTCISOString(startDateStr, tz);
+    const endDateISO = toUTCISOString(endDateStr, tz);
+
+    const startDate = new Date(startDateISO);
+    const endDate = new Date(endDateISO);
+
+    // Defensive check for invalid dates
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      alert("Invalid start or end date/time. Please check your inputs.");
+      console.warn("[createEvent] Invalid dates:", { startDate, endDate, startDateStr, endDateStr });
+      return;
+    }
+
     const event = {
       id: Date.now().toString(),
       calendar: calendarValue,
       title: document.getElementById("event-title").value,
       description: document.getElementById("event-description").value,
       location: document.getElementById("event-location").value,
-      startDate: new Date(`${document.getElementById("event-start-date").value}T${document.getElementById("event-start-time").value}`),
-      endDate: new Date(`${document.getElementById("event-end-date").value}T${document.getElementById("event-end-time").value}`),
+      startDate: startDate, // This is a UTC Date object
+      endDate: endDate, // This is a UTC Date object
       recurring: document.getElementById("event-recurring").checked,
       recurrenceType: document.getElementById("recurrence-type").value,
       recurrenceCount: document.getElementById("limit-recurrences").checked ? Number.parseInt(document.getElementById("recurrence-count").value) : null,
+      timezone: tz,
     };
 
     this.events.push(event);
+    console.log("[createEvent] Events array after push:", this.events);
     this.saveEvents();
     this.renderCurrentView();
 
@@ -864,48 +970,86 @@ class CalendarApp {
       }));
     }
 
-    // Sample events for demonstration
-    return [
-      {
-        id: "1",
-        calendar: "personal",
-        title: "Morning Workout",
-        description: "Gym session",
-        location: "Local Gym",
-        startDate: new Date(2025, 0, 9, 7, 0),
-        endDate: new Date(2025, 0, 9, 8, 30),
-        recurring: false,
-      },
-      {
-        id: "2",
-        calendar: "work",
-        title: "Team Meeting",
-        description: "Weekly standup",
-        location: "Conference Room A",
-        startDate: new Date(2025, 0, 9, 10, 0),
-        endDate: new Date(2025, 0, 9, 11, 0),
-        recurring: true,
-        recurrenceType: "weekly",
-      },
-    ];
+    // No sample events; return empty array if nothing saved
+    return [];
   }
 
   saveEvents() {
     localStorage.setItem("calendar-events", JSON.stringify(this.events));
   }
 
-  formatTime(date) {
+  formatTime(date, tz) {
+    // tz: IANA timezone string
+    const timezone = tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
     return date.toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
+      timeZone: timezone,
     });
   }
+
+  formatTimeLabel(hour, minute, tz) {
+    // Helper for time labels in time columns
+    const timezone = tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const d = new Date(Date.UTC(2000, 0, 1, hour, minute));
+    return d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: timezone,
+    });
+  }
+}
+
+// --- Auto-resize #current-date font to fit one line ---
+function fitCurrentDateFont() {
+  const el = document.getElementById("current-date");
+  if (!el) return;
+  const maxFont = 24; // px
+  const minFont = 12; // px
+  el.style.fontSize = maxFont + "px";
+  el.style.whiteSpace = "nowrap";
+  // Removed overflow and textOverflow to prevent ellipsis
+  let fits = el.scrollWidth <= el.clientWidth;
+  while (!fits && parseFloat(el.style.fontSize) > minFont) {
+    el.style.fontSize = parseFloat(el.style.fontSize) - 1 + "px";
+    fits = el.scrollWidth <= el.clientWidth;
+  }
+}
+
+// Call after rendering or updating the date string
+function observeCurrentDateResize() {
+  const el = document.getElementById("current-date");
+  if (!el) return;
+  // Observe changes to the text content
+  const observer = new MutationObserver(fitCurrentDateFont);
+  observer.observe(el, { childList: true, characterData: true, subtree: true });
+  // Also fit on window resize
+  window.addEventListener("resize", fitCurrentDateFont);
+  // Initial fit
+  fitCurrentDateFont();
+}
+
+// --- Convert UTC Date to selected timezone (returns Date object in that TZ) ---
+function convertUTCToTZ(dateInput, tz) {
+  // Accepts a Date object or ISO string
+  const utcDate = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  // Format as locale string in target timezone, then parse as local date
+  const parts = utcDate.toLocaleString("en-US", { timeZone: tz }).split(/[\s,]+/);
+  // Parse year, month, day, hour, minute
+  const [month, day, year, time, meridian] = parts;
+  let [hour, minute] = time.split(":").map(Number);
+  if (meridian && meridian.toLowerCase().startsWith("p") && hour < 12) hour += 12;
+  if (meridian && meridian.toLowerCase().startsWith("a") && hour === 12) hour = 0;
+  // JS months are 0-based
+  return new Date(Number(year), Number(month) - 1, Number(day), hour, minute);
 }
 
 // Initialize the calendar app when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
   // Load saved theme
+  observeCurrentDateResize();
   const savedTheme = localStorage.getItem("calendar-theme") || "light";
   document.getElementById("app").classList.add(`theme-${savedTheme}`);
 
