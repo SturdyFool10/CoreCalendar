@@ -124,6 +124,245 @@
                                         <input type="time" id="event-start-time" required />
                                     </div>
                                 </div>
+                                <script>
+                                    // --- Deduped IANA Timezone Logic ---
+                                    const PREFERENCE_ORDER = [
+                                        "America/Los_Angeles",
+                                        "America/Phoenix",
+                                        "America/Denver",
+                                        "America/Chicago",
+                                        "America/New_York",
+                                        "America/Anchorage",
+                                        "Pacific/Honolulu",
+                                        "America/Vancouver",
+                                        "America/Edmonton",
+                                        "America/Winnipeg",
+                                        "America/Toronto",
+                                        "America/Mexico_City",
+                                        "America/Bogota",
+                                        "America/Lima",
+                                        "America/Caracas",
+                                        "America/Santiago",
+                                        "America/Sao_Paulo",
+                                        "America/Montevideo",
+                                        "America/Asuncion",
+                                        "Europe/London",
+                                        "Europe/Dublin",
+                                        "Europe/Berlin",
+                                        "Europe/Paris",
+                                        "Europe/Madrid",
+                                        "Europe/Rome",
+                                        "Europe/Warsaw",
+                                        "Europe/Athens",
+                                        "Europe/Bucharest",
+                                        "Europe/Helsinki",
+                                        "Europe/Istanbul",
+                                        "Europe/Moscow",
+                                        "Asia/Dubai",
+                                        "Asia/Qatar",
+                                        "Asia/Riyadh",
+                                        "Asia/Tehran",
+                                        "Asia/Jerusalem",
+                                        "Africa/Cairo",
+                                        "Africa/Johannesburg",
+                                        "Africa/Nairobi",
+                                        "Africa/Casablanca",
+                                        "Asia/Kabul",
+                                        "Asia/Karachi",
+                                        "Asia/Kolkata",
+                                        "Asia/Dhaka",
+                                        "Asia/Yangon",
+                                        "Asia/Bangkok",
+                                        "Asia/Jakarta",
+                                        "Asia/Singapore",
+                                        "Asia/Hong_Kong",
+                                        "Asia/Shanghai",
+                                        "Asia/Taipei",
+                                        "Asia/Tokyo",
+                                        "Asia/Seoul",
+                                        "Australia/Perth",
+                                        "Australia/Adelaide",
+                                        "Australia/Sydney",
+                                        "Pacific/Auckland",
+                                        "Pacific/Fiji",
+                                        "Pacific/Tongatapu",
+                                        "Etc/UTC",
+                                        "UTC",
+                                        "Etc/GMT",
+                                    ];
+                                    const FALLBACK_TIMEZONES = [
+                                        "Etc/UTC",
+                                        "Etc/GMT",
+                                        "Pacific/Honolulu",
+                                        "America/Anchorage",
+                                        "America/Los_Angeles",
+                                        "America/Phoenix",
+                                        "America/Denver",
+                                        "America/Chicago",
+                                        "America/New_York",
+                                        "America/Mexico_City",
+                                        "America/Bogota",
+                                        "America/Lima",
+                                        "America/Caracas",
+                                        "America/Santiago",
+                                        "America/Sao_Paulo",
+                                        "Europe/London",
+                                        "Europe/Dublin",
+                                        "Europe/Berlin",
+                                        "Europe/Paris",
+                                        "Europe/Madrid",
+                                        "Europe/Rome",
+                                        "Europe/Warsaw",
+                                        "Europe/Athens",
+                                        "Europe/Bucharest",
+                                        "Europe/Helsinki",
+                                        "Europe/Istanbul",
+                                        "Europe/Moscow",
+                                        "Africa/Cairo",
+                                        "Africa/Johannesburg",
+                                        "Africa/Nairobi",
+                                        "Africa/Casablanca",
+                                        "Asia/Dubai",
+                                        "Asia/Qatar",
+                                        "Asia/Riyadh",
+                                        "Asia/Tehran",
+                                        "Asia/Jerusalem",
+                                        "Asia/Kabul",
+                                        "Asia/Karachi",
+                                        "Asia/Kolkata",
+                                        "Asia/Dhaka",
+                                        "Asia/Yangon",
+                                        "Asia/Bangkok",
+                                        "Asia/Jakarta",
+                                        "Asia/Singapore",
+                                        "Asia/Hong_Kong",
+                                        "Asia/Shanghai",
+                                        "Asia/Taipei",
+                                        "Asia/Tokyo",
+                                        "Asia/Seoul",
+                                        "Australia/Perth",
+                                        "Australia/Adelaide",
+                                        "Australia/Sydney",
+                                        "Pacific/Auckland",
+                                        "Pacific/Fiji",
+                                        "Pacific/Tongatapu",
+                                    ];
+                                    function tzOffsetMinutes(timeZone, date) {
+                                        try {
+                                            const dtf = new Intl.DateTimeFormat("en-US", {
+                                                timeZone,
+                                                hour12: false,
+                                                year: "numeric",
+                                                month: "2-digit",
+                                                day: "2-digit",
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                                second: "2-digit",
+                                            });
+                                            const parts = Object.fromEntries(dtf.formatToParts(date).map((p) => [p.type, p.value]));
+                                            const asUTC = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));
+                                            return Math.round((asUTC - date.getTime()) / 60000);
+                                        } catch {
+                                            return 0;
+                                        }
+                                    }
+                                    function buildSignature(timeZone, year = new Date().getUTCFullYear()) {
+                                        const stamps = [];
+                                        for (let m = 0; m < 12; m++) {
+                                            const d = new Date(Date.UTC(year, m, 1, 0, 0, 0));
+                                            stamps.push(tzOffsetMinutes(timeZone, d));
+                                        }
+                                        return stamps.join(",");
+                                    }
+                                    function dedupeBySignature(zones, year = new Date().getUTCFullYear()) {
+                                        const groups = new Map();
+                                        for (const tz of zones) {
+                                            try {
+                                                const sig = buildSignature(tz, year);
+                                                if (!groups.has(sig)) groups.set(sig, new Set());
+                                                groups.get(sig).add(tz);
+                                            } catch {}
+                                        }
+                                        return groups;
+                                    }
+                                    function chooseRepresentatives(groups) {
+                                        const preferredIndex = new Map(PREFERENCE_ORDER.map((tz, i) => [tz, i]));
+                                        const reps = [];
+                                        for (const set of groups.values()) {
+                                            const candidates = Array.from(set);
+                                            candidates.sort((a, b) => {
+                                                const ai = preferredIndex.has(a) ? preferredIndex.get(a) : Infinity;
+                                                const bi = preferredIndex.has(b) ? preferredIndex.get(b) : Infinity;
+                                                if (ai !== bi) return ai - bi;
+                                                return a.localeCompare(b);
+                                            });
+                                            reps.push(candidates[0]);
+                                        }
+                                        reps.sort((a, b) => a.localeCompare(b));
+                                        return reps;
+                                    }
+                                    function getAllTimeZones() {
+                                        if (typeof Intl.supportedValuesOf === "function") {
+                                            try {
+                                                const list = Intl.supportedValuesOf("timeZone");
+                                                if (Array.isArray(list) && list.length) return list;
+                                            } catch {}
+                                        }
+                                        return FALLBACK_TIMEZONES;
+                                    }
+                                    function getUniqueTimeZones(options = {}) {
+                                        const { year = new Date().getUTCFullYear() } = options;
+                                        const zones = getAllTimeZones();
+                                        const groups = dedupeBySignature(zones, year);
+                                        return chooseRepresentatives(groups);
+                                    }
+                                    function detectUserTimezone() {
+                                        return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+                                    }
+                                    function populateTimezoneDropdown() {
+                                        const IANATimezones = getUniqueTimeZones();
+                                        // Event form
+                                        const tzSelect = document.getElementById("event-timezone");
+                                        if (tzSelect) {
+                                            tzSelect.innerHTML = "";
+                                            IANATimezones.forEach((tz) => {
+                                                const opt = document.createElement("option");
+                                                opt.value = tz;
+                                                opt.textContent = tz;
+                                                tzSelect.appendChild(opt);
+                                            });
+                                            const detected = detectUserTimezone();
+                                            tzSelect.value = IANATimezones.includes(detected) ? detected : "UTC";
+                                        }
+                                        // Desktop view
+                                        const viewTzSelect = document.getElementById("view-timezone");
+                                        if (viewTzSelect) {
+                                            viewTzSelect.innerHTML = "";
+                                            IANATimezones.forEach((tz) => {
+                                                const opt = document.createElement("option");
+                                                opt.value = tz;
+                                                opt.textContent = tz;
+                                                viewTzSelect.appendChild(opt);
+                                            });
+                                            const detected = detectUserTimezone();
+                                            viewTzSelect.value = IANATimezones.includes(detected) ? detected : "UTC";
+                                        }
+                                        // Mobile/side menu
+                                        const sideTzSelect = document.getElementById("side-view-timezone");
+                                        if (sideTzSelect) {
+                                            sideTzSelect.innerHTML = "";
+                                            IANATimezones.forEach((tz) => {
+                                                const opt = document.createElement("option");
+                                                opt.value = tz;
+                                                opt.textContent = tz;
+                                                sideTzSelect.appendChild(opt);
+                                            });
+                                            const detected = detectUserTimezone();
+                                            sideTzSelect.value = IANATimezones.includes(detected) ? detected : "UTC";
+                                        }
+                                    }
+                                    document.addEventListener("DOMContentLoaded", populateTimezoneDropdown);
+                                </script>
                                 <div class="form-group">
                                     <label for="event-timezone">Timezone</label>
                                     <select id="event-timezone"></select>
@@ -280,12 +519,7 @@
 
         <script src="calendar.js"></script>
         <script>
-            // --- Timezone Dropdown Population and Detection ---
-            const IANATimezones = ["UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Moscow", "Asia/Tokyo", "Asia/Shanghai", "Asia/Kolkata", "Australia/Sydney", "Pacific/Auckland"];
-            function detectUserTimezone() {
-                return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-            }
-            function populateTimezoneDropdown() {
+
                 const tzSelect = document.getElementById("event-timezone");
                 if (tzSelect) {
                     tzSelect.innerHTML = "";
