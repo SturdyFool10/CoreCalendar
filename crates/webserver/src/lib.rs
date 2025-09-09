@@ -19,7 +19,7 @@ use tracing::*;
 ///entry point for the web server, gets a copy of state for its own use, state is Arc on everything so its a global state
 
 pub async fn start_web_server(state: AppState) {
-    let static_dir = "crates/webserver/html_src/out";
+    let static_dir = "crates/webserver/html_src";
     let app = Router::new()
         .route("/ws", get(ws_handler))
         .with_state(state.clone())
@@ -110,10 +110,10 @@ async fn websocket_handler(socket: WebSocket, state: AppState) {
     info!("WebSocket connection cleaned up: {conn_id}");
 
     // Ensure sender task is finished
-    let _ = sender_task.await;
+    let _ = sender_task.abort();
 }
 
-/// Print fancy listen address messaging for the user.
+/// Print fancy listen address messaging for the user. doesn't do much functionally but it does tell the user if/when they are enabling specific features using the interface field in the config
 fn log_listen_address(addr: SocketAddr) {
     match addr {
         SocketAddr::V4(v4) => {

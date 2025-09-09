@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Calendar App</title>
+        <link rel="stylesheet" href="calendar.css" />
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    </head>
+    <body>
+        <div id="app" class="theme-light">
+            <!-- Toolbar -->
+            <div class="toolbar">
+                <button id="menu-btn" class="menu-btn">☰</button>
+
+                <div class="date-navigation">
+                    <button id="prev-btn" class="nav-btn">‹</button>
+                    <div class="date-selector">
+                        <span id="current-date">January 2025</span>
+                        <select id="date-picker" class="date-picker">
+                            <!-- Options populated by JS -->
+                        </select>
+                    </div>
+                    <button id="next-btn" class="nav-btn">›</button>
+                </div>
+
+                <div class="view-controls">
+                    <button id="day-view" class="view-btn active">Day</button>
+                    <button id="week-view" class="view-btn">Week</button>
+                    <button id="month-view" class="view-btn">Month</button>
+                </div>
+
+                <!-- Redesigned theme toggle with slider and animated backgrounds -->
+                <div id="theme-toggle" class="theme-toggle">
+                    <div class="theme-slider">
+                        <div class="theme-background">
+                            <div class="light-bg">
+                                <div class="cloud"></div>
+                            </div>
+                            <div class="dark-bg">
+                                <div class="star"></div>
+                                <div class="star"></div>
+                                <div class="star"></div>
+                            </div>
+                        </div>
+                        <div class="theme-handle">
+                            <span class="sun">☀️</span>
+                            <span class="moon">🌙</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Side Menu -->
+            <div id="side-menu" class="side-menu">
+                <div class="menu-content">
+                    <h2>Calendar Menu</h2>
+
+                    <!-- Create Event Section -->
+                    <div class="menu-section">
+                        <button class="section-toggle" data-target="create-event">
+                            <span>Create Event</span>
+                            <span class="arrow">▼</span>
+                        </button>
+                        <div id="create-event" class="section-content">
+                            <form id="event-form">
+                                <div class="form-group">
+                                    <label>Calendar</label>
+                                    <select id="event-calendar">
+                                        <option value="" disabled selected>Make a selection</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Title</label>
+                                    <input type="text" id="event-title" required />
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Description</label>
+                                    <textarea id="event-description"></textarea>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Location</label>
+                                    <input type="text" id="event-location" />
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Start Date</label>
+                                        <input type="date" id="event-start-date" required />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Start Time</label>
+                                        <input type="time" id="event-start-time" required />
+                                    </div>
+                                </div>
+
+                                <!-- Added toggle for duration vs end date/time -->
+                                <div class="form-group">
+                                    <label class="toggle-label">
+                                        <input type="checkbox" id="use-duration" />
+                                        Use duration instead of end time
+                                    </label>
+                                </div>
+
+                                <div id="end-time-section" class="form-row">
+                                    <div class="form-group">
+                                        <label>End Date</label>
+                                        <input type="date" id="event-end-date" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>End Time</label>
+                                        <input type="time" id="event-end-time" />
+                                    </div>
+                                </div>
+
+                                <div id="duration-section" class="form-group" style="display: none">
+                                    <label>Duration</label>
+                                    <div class="duration-inputs">
+                                        <input type="number" id="duration-hours" min="0" max="23" placeholder="Hours" />
+                                        <input type="number" id="duration-minutes" min="0" max="59" placeholder="Minutes" />
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="toggle-label">
+                                        <input type="checkbox" id="event-recurring" />
+                                        Recurring Event
+                                    </label>
+                                </div>
+
+                                <!-- Enhanced recurring options with proper structure -->
+                                <div id="recurring-options" class="recurring-options" style="display: none">
+                                    <div class="form-group">
+                                        <label>Repeat</label>
+                                        <select id="recurrence-type">
+                                            <option value="" disabled selected>Make a selection</option>
+                                            <option value="daily">Daily</option>
+                                            <option value="weekly">Weekly</option>
+                                            <option value="monthly">Monthly</option>
+                                            <option value="yearly">Yearly</option>
+                                            <option value="custom">Custom</option>
+                                        </select>
+                                    </div>
+
+                                    <div id="custom-recurrence" class="form-group" style="display: none">
+                                        <label>Custom Interval</label>
+                                        <div class="custom-inputs">
+                                            <input type="number" id="custom-years" placeholder="Years" min="0" />
+                                            <input type="number" id="custom-months" placeholder="Months" min="0" />
+                                            <input type="number" id="custom-days" placeholder="Days" min="0" />
+                                            <input type="number" id="custom-hours" placeholder="Hours" min="0" />
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="toggle-label">
+                                            <input type="checkbox" id="limit-recurrences" />
+                                            Limit number of occurrences
+                                        </label>
+                                    </div>
+
+                                    <div id="recurrence-count-section" class="form-group" style="display: none">
+                                        <label>Number of occurrences</label>
+                                        <input type="number" id="recurrence-count" min="1" max="999" placeholder="e.g., 10" />
+                                    </div>
+
+                                    <div class="recurrence-info">
+                                        <small>Default: Repeats indefinitely</small>
+                                    </div>
+                                </div>
+                                <!-- Add Event Button fixed to bottom -->
+                                <div class="create-event-footer">
+                                    <button type="submit" class="create-btn" id="add-event-btn">Add Event</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Import Events Section -->
+                    <div class="menu-section">
+                        <button class="section-toggle" data-target="import-events">
+                            <span>Import Events</span>
+                            <span class="arrow">▼</span>
+                        </button>
+                        <div id="import-events" class="section-content">
+                            <div class="form-group">
+                                <label>Calendar</label>
+                                <select id="import-calendar">
+                                    <option value="" disabled selected>Make a selection</option>
+                                </select>
+                            </div>
+
+                            <div class="file-upload">
+                                <input type="file" id="file-input" accept=".ics,.csv" style="display: none" />
+                                <button type="button" id="browse-btn" class="browse-btn">Browse Files</button>
+
+                                <div id="drop-zone" class="drop-zone">
+                                    <p>Drag and drop files here</p>
+                                    <p class="file-types">Supported: .ics, .csv</p>
+                                </div>
+
+                                <button type="button" id="import-btn" class="import-btn">Import Events</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Calendar Area -->
+            <div id="calendar-container" class="calendar-container">
+                <!-- Day View -->
+                <div id="day-view-container" class="view-container active">
+                    <div class="time-column">
+                        <!-- Time labels populated by JS -->
+                    </div>
+                    <div class="day-column">
+                        <div class="day-grid">
+                            <!-- Time slots populated by JS -->
+                        </div>
+                        <div class="current-time-line" style="display: none"></div>
+                    </div>
+                </div>
+
+                <!-- Week View -->
+                <div id="week-view-container" class="view-container">
+                    <div class="time-column">
+                        <!-- Time labels populated by JS -->
+                    </div>
+                    <div class="week-days">
+                        <!-- Day columns populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Month View -->
+                <div id="month-view-container" class="view-container">
+                    <div class="month-header">
+                        <!-- Day names -->
+                    </div>
+                    <div class="month-grid">
+                        <!-- Calendar cells populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="calendar.js"></script>
+    </body>
+</html>

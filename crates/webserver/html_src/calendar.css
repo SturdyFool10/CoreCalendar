@@ -1,0 +1,861 @@
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Theme Variables */
+.theme-light {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8f9fa;
+    --bg-tertiary: #e9ecef;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --border-color: #dee2e6;
+    --accent-color: #007bff;
+    --accent-hover: #0056b3;
+    --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.theme-dark {
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2d2d2d;
+    --bg-tertiary: #404040;
+    --text-primary: #ffffff;
+    --text-secondary: #b0b0b0;
+    --border-color: #555555;
+    --accent-color: #4dabf7;
+    --accent-hover: #339af0;
+    --shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+#app {
+    height: 100vh;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+/* Toolbar */
+.toolbar {
+    height: 4rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 0 1.25rem;
+    gap: 1.25rem;
+    flex-shrink: 0;
+}
+
+.menu-btn {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    transition: background 0.2s;
+}
+
+.menu-btn:hover {
+    background: var(--bg-tertiary);
+}
+
+.date-navigation {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.nav-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    font-size: 1.125rem;
+    transition: all 0.2s;
+}
+
+.nav-btn:hover {
+    background: var(--bg-tertiary);
+}
+
+.date-selector {
+    position: relative;
+}
+
+#current-date {
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    transition: background 0.2s;
+}
+
+#current-date:hover {
+    background: var(--bg-tertiary);
+}
+
+.date-picker {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    padding: 0.25rem;
+    display: none;
+    z-index: 1000;
+    box-shadow: var(--shadow);
+}
+
+.view-controls {
+    display: flex;
+    gap: 0.125rem;
+    margin-left: auto;
+}
+
+.view-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s;
+}
+
+.view-btn:first-child {
+    border-radius: 0.25rem 0 0 0.25rem;
+}
+
+.view-btn:last-child {
+    border-radius: 0 0.25rem 0.25rem 0;
+}
+
+.view-btn.active {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+.view-btn:not(.active):hover {
+    background: var(--bg-tertiary);
+}
+
+/* New animated theme toggle design */
+.theme-toggle {
+    position: relative;
+    width: 5rem;
+    height: 2.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.theme-slider {
+    width: 100%;
+    height: 100%;
+    border-radius: 1.25rem;
+    position: relative;
+    overflow: hidden;
+    border: 0.125rem solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.theme-background {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.light-bg,
+.dark-bg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    transition: opacity 0.3s ease;
+}
+
+.light-bg {
+    background: linear-gradient(to bottom, #87ceeb 0%, #98d8e8 100%);
+}
+
+.dark-bg {
+    background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%);
+    opacity: 0;
+}
+
+.theme-dark .light-bg {
+    opacity: 0;
+}
+
+.theme-dark .dark-bg {
+    opacity: 1;
+}
+
+.cloud {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    width: 1rem;
+    height: 0.625rem;
+    background: white;
+    border-radius: 0.625rem;
+    opacity: 0.8;
+}
+
+.cloud::before {
+    content: "";
+    position: absolute;
+    top: -0.25rem;
+    left: 0.125rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    background: white;
+    border-radius: 50%;
+}
+
+.star {
+    position: absolute;
+    width: 0.125rem;
+    height: 0.125rem;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle 2s infinite;
+}
+
+.star:nth-child(1) {
+    top: 0.5rem;
+    left: 0.625rem;
+    animation-delay: 0s;
+}
+
+.star:nth-child(2) {
+    top: 0.9375rem;
+    left: 1.25rem;
+    animation-delay: 0.7s;
+}
+
+.star:nth-child(3) {
+    top: 1.25rem;
+    left: 0.3125rem;
+    animation-delay: 1.4s;
+}
+
+@keyframes twinkle {
+    0%,
+    100% {
+        opacity: 0.3;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+.theme-handle {
+    position: absolute;
+    top: 0.125rem;
+    left: 0.125rem;
+    width: 2rem;
+    height: 2rem;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    transition: transform 0.3s ease;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.2);
+}
+
+.theme-dark .theme-handle {
+    transform: translateX(2.5rem);
+    background: #2d2d2d;
+}
+
+.theme-handle .sun {
+    display: block;
+}
+
+.theme-handle .moon {
+    display: none;
+}
+
+.theme-dark .theme-handle .sun {
+    display: none;
+}
+
+.theme-dark .theme-handle .moon {
+    display: block;
+}
+
+/* Side Menu */
+.side-menu {
+    position: fixed;
+    top: 4rem;
+    left: -25rem;
+    width: 25rem;
+    height: calc(100vh - 4rem);
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    transition: left 0.3s ease;
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+.side-menu.open {
+    left: 0;
+}
+
+.side-menu.open ~ .calendar-container {
+    margin-left: 25rem;
+}
+
+.menu-content {
+    padding: 1.25rem;
+}
+
+.menu-content h2 {
+    margin-bottom: 1.25rem;
+    color: var(--text-primary);
+}
+
+.menu-section {
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.section-toggle {
+    width: 100%;
+    background: var(--bg-tertiary);
+    border: none;
+    padding: 0.9375rem;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-primary);
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.section-toggle:hover {
+    background: var(--bg-primary);
+}
+
+.section-toggle .arrow {
+    transition: transform 0.3s;
+}
+
+.section-toggle.active .arrow {
+    transform: rotate(180deg);
+}
+
+.section-content {
+    padding: 1.25rem;
+    background: var(--bg-primary);
+    display: none;
+}
+
+.section-content.open {
+    display: block;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 0.9375rem;
+}
+
+/* Add Event Button fixed to bottom of create event menu */
+.create-event-footer {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: var(--bg-primary);
+    padding-top: 1rem;
+    padding-bottom: 0.5rem;
+    display: flex;
+    justify-content: flex-end;
+    z-index: 10;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.form-row {
+    display: flex;
+    gap: 0.625rem;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.3125rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+/* Calendar dropdown styling for color dots */
+select option {
+    display: flex;
+    align-items: center;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 0.125rem rgba(0, 123, 255, 0.25);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 5rem;
+}
+
+.duration-inputs {
+    display: flex;
+    gap: 0.625rem;
+}
+
+.duration-inputs input {
+    flex: 1;
+}
+
+.recurring-options {
+    margin-top: 0.625rem;
+    padding: 0.9375rem;
+    background: var(--bg-secondary);
+    border-radius: 0.25rem;
+}
+
+#custom-recurrence {
+    margin-top: 0.625rem;
+    display: flex;
+    gap: 0.625rem;
+}
+
+#custom-recurrence input {
+    flex: 1;
+    padding-right: 1.125rem;
+    /* Hide number input spinners for better placeholder visibility */
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+#custom-recurrence input::-webkit-outer-spin-button,
+#custom-recurrence input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+}
+
+.create-btn,
+.browse-btn,
+.import-btn {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.create-btn:hover,
+.browse-btn:hover,
+.import-btn:hover {
+    background: var(--accent-hover);
+}
+
+/* Enhanced form styling for new toggle elements */
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.toggle-label input[type="checkbox"] {
+    width: auto;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+    accent-color: var(--accent-color);
+}
+
+.custom-inputs {
+    display: flex;
+    gap: 0.625rem;
+}
+
+.custom-inputs input {
+    flex: 1;
+}
+
+.recurrence-info {
+    margin-top: 0.625rem;
+    padding: 0.5rem;
+    background: var(--bg-tertiary);
+    border-radius: 0.25rem;
+    border-left: 0.1875rem solid var(--accent-color);
+}
+
+.recurrence-info small {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Calendar Container */
+.calendar-container {
+    flex: 1;
+    overflow: hidden;
+    transition: margin-left 0.3s ease;
+    height: calc(100vh - 4rem);
+}
+
+.view-container {
+    height: 100%;
+    display: none;
+}
+
+.view-container.active {
+    display: flex;
+    height: 100%;
+}
+
+/* Time Column */
+.time-column {
+    width: 5rem;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    flex-shrink: 0;
+    overflow-y: auto;
+    height: 100%;
+}
+
+.time-slot {
+    height: calc((100vh - 4rem - 3.75rem) / 24);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 0.3125rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    box-sizing: border-box;
+}
+
+/* Add spacing to push first time slot below week day headers */
+#week-view-container .time-column {
+    padding-top: 3.75rem;
+    height: calc(100vh - 4rem);
+}
+
+/* Ensure day view time column has no padding */
+#day-view-container .time-column {
+    padding-top: 0;
+}
+
+/* Day View */
+.day-column {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+}
+
+.day-grid {
+    position: relative;
+    height: calc(100vh - 4rem);
+}
+
+.hour-slot {
+    height: calc((100vh - 4rem) / 24);
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+}
+
+/* Day view time slots should match hour slots */
+#day-view-container .time-slot {
+    height: calc((100vh - 4rem) / 24);
+}
+
+.current-time-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0.125rem;
+    background: #ff4757;
+    z-index: 100;
+    box-shadow: 0 0 0.25rem rgba(255, 71, 87, 0.5);
+}
+
+.current-time-line::before {
+    content: "";
+    position: absolute;
+    left: -0.375rem;
+    top: -0.25rem;
+    width: 0.625rem;
+    height: 0.625rem;
+    background: #ff4757;
+    border-radius: 50%;
+}
+
+/* Week View */
+.week-days {
+    flex: 1;
+    display: flex;
+    overflow-x: auto;
+    height: 100%;
+}
+
+.week-day {
+    flex: 1;
+    min-width: 9.375rem;
+    border-right: 1px solid var(--border-color);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.week-day:last-child {
+    border-right: none;
+}
+
+.week-day-header {
+    height: 3.75rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.week-day-grid {
+    flex: 1;
+    height: calc(100vh - 4rem - 3.75rem);
+    position: relative;
+    overflow: hidden;
+}
+
+.week-day-grid .hour-slot {
+    height: calc((100vh - 4rem - 3.75rem) / 24);
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* Month View */
+#month-view-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+.month-header {
+    height: 2.5rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-shrink: 0;
+}
+
+.month-day-name {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    border-right: 1px solid var(--border-color);
+}
+
+.month-day-name:last-child {
+    border-right: none;
+}
+
+.month-grid {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    height: 100%;
+}
+
+.month-week {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    flex: 1 1 0;
+    min-height: 0;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    align-items: stretch;
+}
+
+.month-week:last-child {
+    border-bottom: none;
+}
+
+.month-day {
+    flex: 1 1 0;
+    border-right: 1px solid var(--border-color);
+    /* border-bottom removed to avoid double border gap */
+    padding: 0.5rem;
+    position: relative;
+    overflow-y: auto;
+    min-width: 0;
+    /* max-height: 8rem;  Removed to allow full stretch */
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    align-self: stretch;
+    height: 100%;
+}
+
+.month-day:last-child {
+    border-right: none;
+}
+
+.month-week:last-child .month-day {
+    border-bottom: none;
+}
+
+.month-day.other-month {
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+}
+
+.month-day.today {
+    background: rgba(0, 123, 255, 0.1);
+}
+
+.month-day-number {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+/* Events */
+.event {
+    position: absolute;
+    left: 0.25rem;
+    right: 0.25rem;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.event:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
+}
+
+.event.future {
+    border: 2px solid transparent;
+}
+
+.event.past {
+    background: transparent;
+    border: 2px solid;
+}
+
+.event-title {
+    font-weight: 600;
+    margin-bottom: 0.125rem;
+}
+
+.event-time {
+    font-size: 0.625rem;
+    opacity: 0.8;
+}
+
+/* Month view events */
+.month-event {
+    color: white;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.125rem;
+    font-size: 0.625rem;
+    margin-bottom: 0.125rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+/* Responsive */
+@media (max-width: 48rem) {
+    .toolbar {
+        padding: 0 0.625rem;
+        gap: 0.625rem;
+    }
+
+    .side-menu {
+        width: 100%;
+        left: -100%;
+    }
+
+    .side-menu.open ~ .calendar-container {
+        margin-left: 0;
+    }
+
+    .view-controls {
+        margin-left: 0;
+    }
+
+    .date-navigation {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .week-day {
+        min-width: 7.5rem;
+    }
+
+    .time-column {
+        width: 3.75rem;
+    }
+}
