@@ -133,9 +133,9 @@ class CalendarApp {
     this.populateCalendarDropdowns();
 
     // Ensure all dropdowns default to placeholder options
-    document.getElementById("event-calendar").selectedIndex = 0;
-    document.getElementById("recurrence-type").selectedIndex = 0;
-    document.getElementById("import-calendar").selectedIndex = 0;
+    const recurrenceType = document.getElementById("recurrence-type");
+    if (recurrenceType) recurrenceType.selectedIndex = 0;
+    // Custom selects for event-calendar and import-calendar are handled in populateCalendarDropdowns
 
     // Ensure all checkboxes are unchecked
     document.getElementById("use-duration").checked = false;
@@ -573,34 +573,57 @@ class CalendarApp {
   }
 
   populateCalendarDropdowns() {
-    const eventCalendarSelect = document.getElementById("event-calendar");
-    const importCalendarSelect = document.getElementById("import-calendar");
+    // Remove old selects if present
+    const eventSelect = document.getElementById("event-calendar");
+    const importSelect = document.getElementById("import-calendar");
+    let eventParent, importParent;
+    if (eventSelect) {
+      eventParent = eventSelect.parentElement;
+      eventSelect.remove();
+    }
+    if (importSelect) {
+      importParent = importSelect.parentElement;
+      importSelect.remove();
+    }
 
-    // Clear existing options except placeholder
-    eventCalendarSelect.innerHTML = '<option value="" disabled selected>Make a selection</option>';
-    importCalendarSelect.innerHTML = '<option value="" disabled selected>Make a selection</option>';
+    // Prepare options for custom select
+    const calendarOptions = Object.keys(this.calendars).map((calendarKey) => ({
+      value: calendarKey,
+      label: this.calendars[calendarKey].name,
+      color: this.calendars[calendarKey].color,
+    }));
 
-    // Add calendar options from the calendars object
-    Object.keys(this.calendars).forEach((calendarKey) => {
-      const calendar = this.calendars[calendarKey];
+    // Create event calendar custom select
+    const eventDiv = document.createElement("div");
+    eventDiv.id = "event-calendar-container";
+    eventDiv.style.width = "100%";
+    eventParent.insertBefore(eventDiv, eventParent.firstChild.nextSibling);
 
-      // Create option for event calendar dropdown
-      const eventOption = document.createElement("option");
-      eventOption.value = calendarKey;
-      // Use a Unicode dot for color, then name (dot colored, text default)
-      eventOption.textContent = "\u25cf " + calendar.name;
-      eventOption.style.color = ""; // keep default text color for readability
-      eventOption.style.paddingLeft = "0.5em";
-      eventCalendarSelect.appendChild(eventOption);
-
-      // Create option for import calendar dropdown
-      const importOption = document.createElement("option");
-      importOption.value = calendarKey;
-      importOption.textContent = "\u25cf " + calendar.name;
-      importOption.style.color = ""; // keep default text color for readability
-      importOption.style.paddingLeft = "0.5em";
-      importCalendarSelect.appendChild(importOption);
+    this.eventCalendarCustomSelect = new window.CustomColorSelect({
+      options: calendarOptions,
+      placeholder: "Make a selection",
+      value: "",
+      onChange: (val) => {
+        // Optionally handle change event for event calendar
+      },
     });
+    eventDiv.appendChild(this.eventCalendarCustomSelect.el);
+
+    // Create import calendar custom select
+    const importDiv = document.createElement("div");
+    importDiv.id = "import-calendar-container";
+    importDiv.style.width = "100%";
+    importParent.insertBefore(importDiv, importParent.firstChild.nextSibling);
+
+    this.importCalendarCustomSelect = new window.CustomColorSelect({
+      options: calendarOptions,
+      placeholder: "Make a selection",
+      value: "",
+      onChange: (val) => {
+        // Optionally handle change event for import calendar
+      },
+    });
+    importDiv.appendChild(this.importCalendarCustomSelect.el);
   }
 
   // Calendar checkbox logic for both tools
@@ -1437,6 +1460,16 @@ class CalendarApp {
 
   createEvent(e) {
     e.preventDefault();
+
+    // Use custom select value for calendar
+    let calendarKey = "";
+    if (this.eventCalendarCustomSelect && typeof this.eventCalendarCustomSelect.getValue === "function") {
+      calendarKey = this.eventCalendarCustomSelect.getValue();
+    } else {
+      // fallback if custom select not loaded
+      const eventCalendarSelect = document.getElementById("event-calendar");
+      calendarKey = eventCalendarSelect ? eventCalendarSelect.value : "";
+    }
 
     const calendarValue = document.getElementById("event-calendar").value;
     if (!calendarValue || !(calendarValue in this.calendars)) {
