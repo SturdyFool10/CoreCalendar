@@ -1,5 +1,167 @@
 /* Reset and Base Styles */
 
+/* Calendar color dot for calendar selectors and dropdowns */
+.calendar-color-dot {
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    border-radius: 50%;
+    margin-right: 0.5em;
+    margin-left: 0;
+    vertical-align: middle;
+    background: #ccc;
+    flex-shrink: 0;
+    /* Remove order so it follows DOM order */
+    /* order: 1; */
+}
+
+/* Criteria builder styling for boolean logic section */
+.criteria-row {
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 0.375em;
+    padding: 0.5em 0.75em;
+    margin-bottom: 0.75em;
+    background: var(--bg-tertiary, #f8f9fa);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    word-break: break-word;
+    min-height: 3.5em;
+    padding-bottom: 0.5em;
+    gap: 0.25em;
+}
+.criteria-row select,
+.criteria-row input[type="text"],
+.criteria-row input[type="time"] {
+    min-width: 60px;
+    max-width: 220px;
+    width: auto;
+    margin-bottom: 0.25em;
+    flex-shrink: 0;
+    height: 2.2em;
+    line-height: 2.2em;
+    box-sizing: border-box;
+}
+.criteria-row select.rule-type-select {
+    max-width: 140px;
+    width: 100%;
+}
+
+.criteria-row .time-window-value {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 250px;
+    gap: 0.5em;
+    align-items: center;
+    box-sizing: border-box;
+}
+.criteria-row .time-window-value input[type="time"] {
+    max-width: 100px;
+    width: 100%;
+    box-sizing: border-box;
+}
+.criteria-row select.comparator-select,
+.criteria-row select[style*="min-width: 5em"],
+.criteria-row select[style*="min-width: 60px"] {
+    min-width: 60px;
+    max-width: 70px;
+    width: 70px !important;
+    flex: 0 0 70px;
+    height: 2.2em;
+    line-height: 2.2em;
+    vertical-align: middle;
+    overflow: hidden;
+}
+.criteria-row select.rule-type-select,
+.criteria-row select[style*="max-width: 140px"] {
+    min-width: 90px;
+    max-width: 220px;
+    width: auto !important;
+    flex: 1 1 140px;
+    height: 2.2em;
+    line-height: 2.2em;
+    vertical-align: middle;
+    overflow: hidden;
+}
+.criteria-row select.operator-select,
+.criteria-row select[style*="width: 60px"] {
+    min-width: 60px;
+    max-width: 60px;
+    width: 60px !important;
+    flex: 0 0 60px;
+    height: 2.2em;
+    line-height: 2.2em;
+    vertical-align: middle;
+    overflow: hidden;
+}
+.criteria-row > * {
+    flex: 1 1 120px;
+    min-width: 0;
+}
+.criteria-row button {
+    margin-left: 0.5em;
+    padding: 0.1em 0.5em;
+    font-size: 1em;
+    background: none;
+    border: none;
+    color: var(--text-secondary, #888);
+    cursor: pointer;
+    transition: color 0.2s;
+    align-self: flex-start;
+    height: 2.2em;
+    line-height: 2.2em;
+}
+.criteria-row button:hover {
+    color: var(--accent-color, #007bff);
+}
+
+/* Calendar checkbox list: inline, left-aligned */
+.calendar-checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+    margin-top: 0.25em;
+    width: 100%;
+    min-width: 0;
+}
+.calendar-checkbox-list label {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5em;
+    font-weight: 400;
+    cursor: pointer;
+    min-width: 0;
+    width: 100%;
+    white-space: normal;
+    overflow: visible;
+    text-align: left;
+    line-height: 1.4;
+}
+.calendar-checkbox-list label > input[type="checkbox"] {
+    order: 0;
+}
+.calendar-checkbox-list label > .calendar-color-dot {
+    order: 1;
+    margin-left: 0.25em;
+    margin-right: 0.75em;
+}
+.calendar-checkbox-list label > span:not(.calendar-color-dot) {
+    order: 2;
+}
+.calendar-checkbox-list input[type="checkbox"] {
+    margin-right: 0.5em;
+    accent-color: var(--accent-color);
+    flex-shrink: 0;
+    order: 0;
+    width: 1.1em;
+    height: 1.1em;
+    vertical-align: middle;
+    display: inline-block;
+}
+
 * {
     margin: 0;
 
@@ -472,6 +634,15 @@ textarea {
     background: var(--bg-primary);
     color: var(--text-primary);
     font-size: 0.875rem;
+    box-sizing: border-box;
+}
+
+.calendar-checkbox-list label span,
+.calendar-checkbox-list label {
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
+    max-width: 100%;
 }
 
 /* Calendar dropdown styling for color dots */
@@ -866,6 +1037,46 @@ textarea {
     overflow: hidden;
     text-overflow: ellipsis;
     cursor: pointer;
+}
+
+/* All-day event row styling */
+.all-day-row {
+    width: 100%;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.25rem 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.2rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.all-day-event {
+    background: var(--accent-color);
+    color: white;
+    border-radius: 0.25rem;
+    padding: 0.15rem 0.7rem 0.15rem 0.5rem;
+    margin-right: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.95em;
+    position: relative;
+}
+
+.all-day-indicator {
+    background: var(--accent-color);
+    color: white;
+    border-radius: 0.25rem 0 0 0.25rem;
+    padding: 0.1rem 0.4rem 0.1rem 0.4rem;
+    margin-right: 0.4rem;
+    font-size: 0.85em;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    display: inline-block;
+    background: var(--accent-hover);
 }
 
 /* Responsive */

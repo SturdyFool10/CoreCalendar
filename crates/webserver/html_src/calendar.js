@@ -21,6 +21,9 @@ class CalendarApp {
     this.renderCurrentView();
     this.updateCurrentTimeLine();
 
+    // Availability Check UI setup
+    this.setupAvailabilityCheckUI();
+
     // Update current time line every 500ms (2 times per second)
     setInterval(() => this.updateCurrentTimeLine(), 500);
 
@@ -145,6 +148,430 @@ class CalendarApp {
     document.getElementById("recurrence-count-section").style.display = "none";
   }
 
+  // --- Availability Check UI logic ---
+  setupAvailabilityCheckUI() {
+    // Section toggle for Availability Check
+    const sectionToggle = document.querySelector('.section-toggle[data-target="availability-check"]');
+    const sectionContent = document.getElementById("availability-check");
+    if (sectionToggle && sectionContent) {
+      sectionToggle.addEventListener("click", () => {
+        const isOpen = sectionContent.style.display === "" || sectionContent.style.display === "block";
+        sectionContent.style.display = isOpen ? "none" : "block";
+        sectionToggle.classList.toggle("active", !isOpen);
+      });
+    }
+
+    // Tool switching
+    const toolSelect = document.getElementById("availability-tool-select");
+    const conflictUI = document.getElementById("conflict-checker-ui");
+    const slotUI = document.getElementById("find-free-slot-ui");
+    if (toolSelect && conflictUI && slotUI) {
+      toolSelect.addEventListener("change", (e) => {
+        if (e.target.value === "conflict-checker") {
+          conflictUI.style.display = "";
+          slotUI.style.display = "none";
+        } else {
+          conflictUI.style.display = "none";
+          slotUI.style.display = "";
+        }
+      });
+      // Set initial state
+      if (toolSelect.value === "conflict-checker") {
+        conflictUI.style.display = "";
+        slotUI.style.display = "none";
+      } else {
+        conflictUI.style.display = "none";
+        slotUI.style.display = "";
+      }
+    }
+
+    // Render dynamic calendar checkboxes and dropdowns
+    this.renderCalendarCheckboxes("conflict");
+    this.renderCalendarCheckboxes("slot");
+
+    // Setup calendar checkbox logic for both tools
+    this.setupCalendarCheckboxes("conflict");
+    this.setupCalendarCheckboxes("slot");
+
+    // Criteria builder for Find Free Time Slot
+    this.criteriaRules = [];
+    this.renderCriteriaBuilder();
+
+    // Add Criteria button
+    const addCriteriaBtn = document.getElementById("add-criteria-btn");
+    if (addCriteriaBtn) {
+      addCriteriaBtn.addEventListener("click", () => {
+        this.criteriaRules.push({
+          operator: "AND",
+          type: "TimeRule",
+          comparator: "within",
+          value: { earliest: "", latest: "" },
+        });
+        this.renderCriteriaBuilder();
+      });
+    }
+
+    // Conflict checker toggles logic
+    // All-day toggle
+    const allDayCheckbox = document.getElementById("conflict-all-day");
+    const allDayHideEls = document.querySelectorAll("#conflict-checker-ui .all-day-hide");
+    const timezoneGroup = document.getElementById("conflict-timezone-group");
+    if (allDayCheckbox) {
+      function updateAllDayFields() {
+        const isAllDay = allDayCheckbox.checked;
+        allDayHideEls.forEach((el) => {
+          el.style.display = isAllDay ? "none" : "";
+        });
+        if (timezoneGroup) {
+          timezoneGroup.style.display = isAllDay ? "none" : "";
+        }
+      }
+      allDayCheckbox.addEventListener("change", updateAllDayFields);
+      updateAllDayFields();
+    }
+
+    // Use duration toggle
+    const useDurationCheckbox = document.getElementById("conflict-use-duration");
+    const endTimeSection = document.getElementById("conflict-end-time-section");
+    const durationSection = document.getElementById("conflict-duration-section");
+    if (useDurationCheckbox && endTimeSection && durationSection) {
+      function updateDurationMode() {
+        const useDuration = useDurationCheckbox.checked;
+        endTimeSection.style.display = useDuration ? "none" : "";
+        durationSection.style.display = useDuration ? "" : "none";
+      }
+      useDurationCheckbox.addEventListener("change", updateDurationMode);
+      updateDurationMode();
+    }
+  }
+
+  renderCriteriaBuilder() {
+    const builder = document.getElementById("criteria-builder");
+    if (!builder) return;
+    builder.innerHTML = "";
+    if (!this.criteriaRules) this.criteriaRules = [];
+    this.criteriaRules.forEach((rule, idx) => {
+      const row = document.createElement("div");
+      row.className = "criteria-row";
+      row.style.display = "block";
+      row.style.border = "1px solid var(--border-color, #ccc)";
+      row.style.borderRadius = "0.5em";
+      row.style.padding = "0.5em";
+      row.style.marginBottom = "0.5em";
+      row.style.background = "var(--bg-tertiary, #f8f9fa)";
+
+      // First line: Operator and Type
+      const line1 = document.createElement("div");
+      line1.style.display = "flex";
+      line1.style.gap = "0.5em";
+      line1.style.marginBottom = "0.25em";
+      // Operator (hide for first row)
+      let opSel = null;
+      if (idx !== 0) {
+        opSel = document.createElement("select");
+        opSel.style.width = "70px";
+        opSel.style.minWidth = "60px";
+        opSel.style.maxWidth = "80px";
+        opSel.style.height = "2.2em";
+        opSel.style.lineHeight = "2.2em";
+        opSel.style.overflow = "hidden";
+        opSel.style.verticalAlign = "middle";
+        ["AND", "OR", "NOT"].forEach((op) => {
+          const opt = document.createElement("option");
+          opt.value = op;
+          opt.textContent = op;
+          if (rule.operator === op) opt.selected = true;
+          opSel.appendChild(opt);
+        });
+        opSel.addEventListener("change", (e) => {
+          this.criteriaRules[idx].operator = e.target.value;
+        });
+      }
+      // Type
+      const typeSel = document.createElement("select");
+      typeSel.style.width = "120px";
+      typeSel.style.minWidth = "90px";
+      typeSel.style.maxWidth = "140px";
+      typeSel.style.height = "2.2em";
+      typeSel.style.lineHeight = "2.2em";
+      typeSel.style.overflow = "hidden";
+      typeSel.style.verticalAlign = "middle";
+      ["DateRange", "TimeRule", "Tag", "Calendar", "Custom"].forEach((type) => {
+        const opt = document.createElement("option");
+        if (type === "DateRange") {
+          opt.value = type;
+          opt.textContent = "Date Range";
+        } else if (type === "TimeRule") {
+          opt.value = type;
+          opt.textContent = "Time Window";
+        } else {
+          opt.value = type;
+          opt.textContent = type;
+        }
+        if (rule.type === type) opt.selected = true;
+        typeSel.appendChild(opt);
+      });
+      typeSel.addEventListener("change", (e) => {
+        this.criteriaRules[idx].type = e.target.value;
+        // Reset value for new type
+        if (e.target.value === "TimeRule") {
+          this.criteriaRules[idx].value = { earliest: "", latest: "" };
+        } else if (e.target.value === "DateRange") {
+          this.criteriaRules[idx].value = { start: "", end: "" };
+        } else {
+          this.criteriaRules[idx].value = "";
+        }
+        this.renderCriteriaBuilder();
+      });
+      if (opSel) line1.appendChild(opSel);
+      line1.appendChild(typeSel);
+
+      // Comparator
+      // Second line: Comparator and Value
+      const line2 = document.createElement("div");
+      line2.style.display = "flex";
+      line2.style.gap = "0.5em";
+      line2.style.marginBottom = "0.25em";
+      let compSel;
+      if (rule.type === "TimeRule") {
+        compSel = document.createElement("select");
+        compSel.style.width = "70px";
+        compSel.style.minWidth = "60px";
+        compSel.style.maxWidth = "80px";
+        compSel.style.height = "2.2em";
+        compSel.style.lineHeight = "2.2em";
+        compSel.style.overflow = "hidden";
+        compSel.style.verticalAlign = "middle";
+        ["within"].forEach((comp) => {
+          const opt = document.createElement("option");
+          opt.value = comp;
+          opt.textContent = "within";
+          compSel.appendChild(opt);
+        });
+        compSel.value = "within";
+        compSel.disabled = true;
+      } else {
+        compSel = document.createElement("select");
+        compSel.style.width = "70px";
+        compSel.style.minWidth = "60px";
+        compSel.style.maxWidth = "80px";
+        compSel.style.height = "2.2em";
+        compSel.style.lineHeight = "2.2em";
+        compSel.style.overflow = "hidden";
+        compSel.style.verticalAlign = "middle";
+        ["=", "≠"].forEach((comp) => {
+          const opt = document.createElement("option");
+          opt.value = comp;
+          opt.textContent = comp;
+          if (rule.comparator === comp) opt.selected = true;
+          compSel.appendChild(opt);
+        });
+        compSel.addEventListener("change", (e) => {
+          this.criteriaRules[idx].comparator = e.target.value;
+        });
+      }
+
+      // Value (input or dropdown based on type)
+      let valueInput;
+      if (rule.type === "TimeRule") {
+        valueInput = document.createElement("div");
+        valueInput.style.display = "flex";
+        valueInput.style.gap = "0.5em";
+        valueInput.style.alignItems = "center";
+        valueInput.style.flexWrap = "wrap";
+        valueInput.style.width = "100%";
+        const earliest = document.createElement("input");
+        earliest.type = "time";
+        earliest.placeholder = "Earliest Start";
+        earliest.value = rule.value.earliest || "";
+        earliest.style.marginRight = "0.25em";
+        earliest.addEventListener("input", (e) => {
+          this.criteriaRules[idx].value.earliest = e.target.value;
+        });
+        const latest = document.createElement("input");
+        latest.type = "time";
+        latest.placeholder = "Latest End";
+        latest.value = rule.value.latest || "";
+        latest.style.marginLeft = "0.25em";
+        latest.addEventListener("input", (e) => {
+          this.criteriaRules[idx].value.latest = e.target.value;
+        });
+        valueInput.appendChild(document.createTextNode("Earliest:"));
+        valueInput.appendChild(earliest);
+        valueInput.appendChild(document.createTextNode("Latest:"));
+        valueInput.appendChild(latest);
+      } else if (rule.type === "DateRange") {
+        valueInput = document.createElement("div");
+        valueInput.style.display = "flex";
+        valueInput.style.gap = "0.5em";
+        valueInput.style.alignItems = "center";
+        valueInput.style.flexWrap = "wrap";
+        valueInput.style.width = "100%";
+        const startDate = document.createElement("input");
+        startDate.type = "date";
+        startDate.placeholder = "Start Date";
+        startDate.value = rule.value.start || "";
+        startDate.addEventListener("input", (e) => {
+          this.criteriaRules[idx].value.start = e.target.value;
+        });
+        const endDate = document.createElement("input");
+        endDate.type = "date";
+        endDate.placeholder = "End Date";
+        endDate.value = rule.value.end || "";
+        endDate.addEventListener("input", (e) => {
+          this.criteriaRules[idx].value.end = e.target.value;
+        });
+        valueInput.appendChild(document.createTextNode("Start:"));
+        valueInput.appendChild(startDate);
+        valueInput.appendChild(document.createTextNode("End:"));
+        valueInput.appendChild(endDate);
+      } else if (rule.type === "Calendar") {
+        // Custom dropdown for calendar selection with color dots
+        valueInput = document.createElement("div");
+        valueInput.className = "custom-calendar-dropdown";
+        valueInput.style.position = "relative";
+        valueInput.style.display = "inline-block";
+        valueInput.style.width = "180px";
+        valueInput.style.minWidth = "120px";
+        valueInput.style.maxWidth = "220px";
+
+        // Dropdown button
+        const dropdownBtn = document.createElement("button");
+        dropdownBtn.type = "button";
+        dropdownBtn.className = "calendar-dropdown-btn";
+        dropdownBtn.style.width = "100%";
+        dropdownBtn.style.display = "flex";
+        dropdownBtn.style.alignItems = "center";
+        dropdownBtn.style.justifyContent = "space-between";
+        dropdownBtn.style.padding = "0.3em 0.7em";
+        dropdownBtn.style.border = "1px solid #ccc";
+        dropdownBtn.style.borderRadius = "0.3em";
+        dropdownBtn.style.background = "#fff";
+        dropdownBtn.style.cursor = "pointer";
+        dropdownBtn.style.fontSize = "1em";
+        dropdownBtn.style.height = "2.2em";
+        dropdownBtn.style.overflow = "hidden";
+
+        // Selected calendar display
+        const selected = this.calendars[rule.value] || this.calendars[this.getCalendarKeys()[0]];
+        const selectedDot = document.createElement("span");
+        selectedDot.className = "calendar-color-dot";
+        selectedDot.style.background = selected ? selected.color : "#ccc";
+        selectedDot.style.marginRight = "0.5em";
+        const selectedName = document.createElement("span");
+        selectedName.textContent = selected ? selected.name : "Select calendar";
+        selectedName.style.whiteSpace = "nowrap";
+        selectedName.style.overflow = "hidden";
+        selectedName.style.textOverflow = "ellipsis";
+        dropdownBtn.appendChild(selectedDot);
+        dropdownBtn.appendChild(selectedName);
+
+        // Dropdown arrow
+        const arrow = document.createElement("span");
+        arrow.textContent = "▼";
+        arrow.style.marginLeft = "auto";
+        arrow.style.fontSize = "0.9em";
+        dropdownBtn.appendChild(arrow);
+
+        valueInput.appendChild(dropdownBtn);
+
+        // Dropdown list
+        const dropdownList = document.createElement("div");
+        dropdownList.className = "calendar-dropdown-list";
+        dropdownList.style.position = "absolute";
+        dropdownList.style.left = "0";
+        dropdownList.style.top = "2.3em";
+        dropdownList.style.width = "100%";
+        dropdownList.style.background = "#fff";
+        dropdownList.style.border = "1px solid #ccc";
+        dropdownList.style.borderRadius = "0.3em";
+        dropdownList.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)";
+        dropdownList.style.zIndex = "100";
+        dropdownList.style.display = "none";
+        dropdownList.style.maxHeight = "180px";
+        dropdownList.style.overflowY = "auto";
+        dropdownList.style.padding = "0.2em 0";
+
+        this.getCalendarKeys().forEach((calendarKey) => {
+          const calendar = this.calendars[calendarKey];
+          const item = document.createElement("div");
+          item.className = "calendar-dropdown-item";
+          item.style.display = "flex";
+          item.style.alignItems = "center";
+          item.style.padding = "0.3em 0.7em";
+          item.style.cursor = "pointer";
+          item.style.fontSize = "1em";
+          item.style.background = rule.value === calendarKey ? "#f0f4ff" : "#fff";
+          item.style.borderBottom = "1px solid #f3f3f3";
+          if (rule.value === calendarKey) item.style.fontWeight = "bold";
+          // Color dot
+          const dot = document.createElement("span");
+          dot.className = "calendar-color-dot";
+          dot.style.background = calendar.color;
+          dot.style.marginRight = "0.5em";
+          item.appendChild(dot);
+          // Name
+          const name = document.createElement("span");
+          name.textContent = calendar.name;
+          name.style.whiteSpace = "nowrap";
+          name.style.overflow = "hidden";
+          name.style.textOverflow = "ellipsis";
+          item.appendChild(name);
+
+          item.addEventListener("click", () => {
+            this.criteriaRules[idx].value = calendarKey;
+            this.renderCriteriaBuilder();
+          });
+          dropdownList.appendChild(item);
+        });
+
+        valueInput.appendChild(dropdownList);
+
+        // Dropdown open/close logic
+        dropdownBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          dropdownList.style.display = dropdownList.style.display === "block" ? "none" : "block";
+        });
+        document.addEventListener("click", () => {
+          dropdownList.style.display = "none";
+        });
+      } else {
+        valueInput = document.createElement("input");
+        valueInput.type = "text";
+        valueInput.value = rule.value;
+        valueInput.placeholder = rule.type === "Tag" ? "Tag name" : "Custom value";
+        valueInput.addEventListener("input", (e) => {
+          this.criteriaRules[idx].value = e.target.value;
+        });
+      }
+
+      // Remove button
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.textContent = "✕";
+      removeBtn.style.marginLeft = "0.5em";
+      removeBtn.style.alignSelf = "flex-start";
+      removeBtn.addEventListener("click", () => {
+        this.criteriaRules.splice(idx, 1);
+        this.renderCriteriaBuilder();
+      });
+
+      line2.appendChild(compSel);
+      line2.appendChild(valueInput);
+      line2.appendChild(removeBtn);
+
+      row.appendChild(line1);
+      row.appendChild(line2);
+
+      builder.appendChild(row);
+    });
+    if (this.criteriaRules.length === 0) {
+      const empty = document.createElement("div");
+      empty.textContent = "No criteria added.";
+      builder.appendChild(empty);
+    }
+  }
+
   populateCalendarDropdowns() {
     const eventCalendarSelect = document.getElementById("event-calendar");
     const importCalendarSelect = document.getElementById("import-calendar");
@@ -160,23 +587,129 @@ class CalendarApp {
       // Create option for event calendar dropdown
       const eventOption = document.createElement("option");
       eventOption.value = calendarKey;
-      eventOption.textContent = calendar.name;
-      eventOption.style.paddingLeft = "1.5rem";
-      eventOption.style.position = "relative";
-      eventOption.style.background = `radial-gradient(circle at 0.5rem center, ${calendar.color} 0.3rem, transparent 0.3rem)`;
-      eventOption.style.backgroundRepeat = "no-repeat";
+      // Use a Unicode dot for color, then name (dot colored, text default)
+      eventOption.textContent = "\u25cf " + calendar.name;
+      eventOption.style.color = ""; // keep default text color for readability
+      eventOption.style.paddingLeft = "0.5em";
       eventCalendarSelect.appendChild(eventOption);
 
       // Create option for import calendar dropdown
       const importOption = document.createElement("option");
       importOption.value = calendarKey;
-      importOption.textContent = calendar.name;
-      importOption.style.paddingLeft = "1.5rem";
-      importOption.style.position = "relative";
-      importOption.style.background = `radial-gradient(circle at 0.5rem center, ${calendar.color} 0.3rem, transparent 0.3rem)`;
-      importOption.style.backgroundRepeat = "no-repeat";
+      importOption.textContent = "\u25cf " + calendar.name;
+      importOption.style.color = ""; // keep default text color for readability
+      importOption.style.paddingLeft = "0.5em";
       importCalendarSelect.appendChild(importOption);
     });
+  }
+
+  // Calendar checkbox logic for both tools
+  setupCalendarCheckboxes(prefix) {
+    // prefix: "conflict" or "slot"
+    const allBox = document.getElementById(`${prefix}-calendars-all`);
+    const checkboxes = Array.from(document.querySelectorAll(`input[name='${prefix}-calendars']`));
+    if (!allBox || checkboxes.length === 0) return;
+
+    // Helper to update allBox state
+    function updateAllBox() {
+      const checkedCount = checkboxes.filter((cb) => cb.checked).length;
+      if (checkedCount === checkboxes.length) {
+        allBox.checked = true;
+        allBox.indeterminate = false;
+      } else if (checkedCount === 0) {
+        allBox.checked = false;
+        allBox.indeterminate = false;
+      } else {
+        allBox.checked = false;
+        allBox.indeterminate = true;
+      }
+    }
+
+    // When allBox is clicked
+    allBox.addEventListener("change", () => {
+      const checkedCount = checkboxes.filter((cb) => cb.checked).length;
+      const shouldCheck = checkedCount !== checkboxes.length;
+      checkboxes.forEach((cb) => (cb.checked = shouldCheck));
+      updateAllBox();
+    });
+
+    // When any checkbox is clicked
+    checkboxes.forEach((cb) => {
+      cb.addEventListener("change", () => {
+        updateAllBox();
+      });
+    });
+
+    // Initial state
+    updateAllBox();
+  }
+
+  // Dynamically render calendar checkboxes for conflict and slot selectors
+  renderCalendarCheckboxes(prefix) {
+    // prefix: "conflict" or "slot"
+    const container = document.getElementById(`${prefix}-calendar-checkboxes`);
+    if (!container) return;
+    // Save checked state if possible
+    const prevChecked = {};
+    Array.from(container.querySelectorAll(`input[name='${prefix}-calendars']`)).forEach((cb) => {
+      prevChecked[cb.value] = cb.checked;
+    });
+
+    // Clear container
+    container.innerHTML = "";
+
+    // Add select all
+    const selectAllId = `${prefix}-calendars-all`;
+    const selectAllLabel = document.createElement("label");
+    selectAllLabel.className = "toggle-label";
+    const selectAllBox = document.createElement("input");
+    selectAllBox.type = "checkbox";
+    selectAllBox.id = selectAllId;
+    selectAllLabel.appendChild(selectAllBox);
+    const selectAllSpan = document.createElement("span");
+    selectAllSpan.id = `${prefix}-select-all-label`;
+    selectAllSpan.textContent = "Select All";
+    selectAllLabel.appendChild(selectAllSpan);
+    container.appendChild(selectAllLabel);
+
+    // Add calendar checkboxes dynamically
+    Object.keys(this.calendars).forEach((calendarKey) => {
+      const calendar = this.calendars[calendarKey];
+      const div = document.createElement("div");
+      const label = document.createElement("label");
+      label.style.display = "inline-flex";
+      label.style.alignItems = "center";
+      label.style.gap = "0.5em";
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.className = `${prefix}-calendar-checkbox`;
+      box.name = `${prefix}-calendars`;
+      box.value = calendarKey;
+      box.style.marginRight = "0.5em";
+      if (prevChecked[calendarKey]) box.checked = true;
+      label.appendChild(box);
+
+      // Add color dot (always visible, not squished)
+      const colorDot = document.createElement("span");
+      colorDot.className = "calendar-color-dot";
+      colorDot.style.background = calendar.color;
+      label.appendChild(colorDot);
+
+      // Add calendar name (always visible)
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = calendar.name;
+      nameSpan.style.whiteSpace = "nowrap";
+      nameSpan.style.overflow = "visible";
+      label.appendChild(nameSpan);
+
+      div.appendChild(label);
+      container.appendChild(div);
+    });
+  }
+
+  // Dynamically get current calendar keys for criteria builder dropdowns
+  getCalendarKeys() {
+    return Object.keys(this.calendars);
   }
 
   setupTimeSlots() {
@@ -519,14 +1052,32 @@ class CalendarApp {
           eventElement.style.borderBottomRightRadius = "0";
         }
 
-        const eventTitleElement = document.createElement("div");
-        eventTitleElement.className = "event-title";
-        eventTitleElement.textContent = event.title;
-        eventElement.appendChild(eventTitleElement);
+        // All Day indicator
+        if (event.allDay) {
+          // Place [All Day] indicator inline before the title, not as a separate block
+          const eventTitleElement = document.createElement("div");
+          eventTitleElement.className = "event-title";
+          const allDayBox = document.createElement("span");
+          allDayBox.className = "all-day-indicator";
+          allDayBox.textContent = "[All Day]";
+          eventTitleElement.appendChild(allDayBox);
+          // Add a space and then the title text, keeping it inline
+          eventTitleElement.appendChild(document.createTextNode(" " + event.title));
+          eventElement.appendChild(eventTitleElement);
+        } else {
+          const eventTitleElement = document.createElement("div");
+          eventTitleElement.className = "event-title";
+          eventTitleElement.textContent = event.title;
+          eventElement.appendChild(eventTitleElement);
+        }
 
         const eventTimeElement = document.createElement("div");
         eventTimeElement.className = "event-time";
-        eventTimeElement.textContent = `${this.formatTime(eventStart, displayTz)} - ${this.formatTime(eventEnd, displayTz)}`;
+        if (event.allDay) {
+          eventTimeElement.textContent = "";
+        } else {
+          eventTimeElement.textContent = `${this.formatTime(eventStart, displayTz)} - ${this.formatTime(eventEnd, displayTz)}`;
+        }
         eventElement.appendChild(eventTimeElement);
 
         container.appendChild(eventElement);
@@ -548,7 +1099,6 @@ class CalendarApp {
       if (!calendar) return;
       const eventElement = document.createElement("div");
       eventElement.className = "month-event";
-      // Convert UTC to display timezone for rendering
       const eventEnd = convertUTCToTZ(event.endDate, displayTz);
       const isPast = eventEnd < now;
       if (isPast) {
@@ -560,7 +1110,14 @@ class CalendarApp {
         eventElement.style.border = "none";
         eventElement.style.color = "white";
       }
-      eventElement.textContent = event.title;
+      // All Day indicator
+      if (event.allDay) {
+        const allDayBox = document.createElement("span");
+        allDayBox.className = "all-day-indicator";
+        allDayBox.textContent = "[All Day]";
+        eventElement.appendChild(allDayBox);
+      }
+      eventElement.appendChild(document.createTextNode(event.title));
       dayCell.appendChild(eventElement);
     });
 
@@ -888,49 +1445,99 @@ class CalendarApp {
     }
 
     const formData = new FormData(e.target);
-    const tz = document.getElementById("event-timezone") ? document.getElementById("event-timezone").value : Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const startDateStr = `${document.getElementById("event-start-date").value}T${document.getElementById("event-start-time").value}`;
-    const endDateStr = `${document.getElementById("event-end-date").value}T${document.getElementById("event-end-time").value}`;
 
-    // Convert local time in selected timezone to UTC ISO 8601
+    // Validation and sensible defaults
+    const allDay = document.getElementById("event-all-day")?.checked || false;
+    const tz = document.getElementById("event-timezone") ? document.getElementById("event-timezone").value : Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Helper to convert local date/time to UTC ISO string
     function toUTCISOString(localDateStr, timezone) {
-      // This works for most modern browsers (not IE) and most timezones
       try {
-        // Parse as if in the selected timezone, then get UTC ISO string
         const d = new Date(new Date(localDateStr + ":00").toLocaleString("en-US", { timeZone: timezone }));
-        // The above gives a Date object in UTC corresponding to the local time in the selected timezone
-        // Now, get the ISO string (which is always UTC)
         return d.toISOString();
       } catch (e) {
-        // Fallback: treat as local time and convert to UTC
         return new Date(localDateStr + ":00").toISOString();
       }
     }
 
-    const startDateISO = toUTCISOString(startDateStr, tz);
-    const endDateISO = toUTCISOString(endDateStr, tz);
+    // Get and validate start date
+    const startDateVal = document.getElementById("event-start-date").value;
+    if (!startDateVal) {
+      alert("Please select a valid start date.");
+      return;
+    }
 
-    const startDate = new Date(startDateISO);
-    const endDate = new Date(endDateISO);
+    let startDateISO, endDateISO, startDate, endDate;
+    if (allDay) {
+      // All-day event: start at 00:00, end at 01:00 UTC (shows at top of day)
+      startDateISO = toUTCISOString(startDateVal + "T00:00", "UTC");
+      startDate = new Date(startDateISO);
+      // End at 1AM same day
+      endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+    } else {
+      // Timed event: require start time
+      const startTimeVal = document.getElementById("event-start-time").value;
+      if (!startTimeVal) {
+        alert("Please select a valid start time.");
+        return;
+      }
+      const endDateVal = document.getElementById("event-end-date").value;
+      const endTimeVal = document.getElementById("event-end-time").value;
+      const startDateStr = `${startDateVal}T${startTimeVal}`;
+      const endDateStr = endDateVal && endTimeVal ? `${endDateVal}T${endTimeVal}` : "";
+      startDateISO = toUTCISOString(startDateStr, tz);
+      startDate = new Date(startDateISO);
+      if (endDateStr) {
+        endDateISO = toUTCISOString(endDateStr, tz);
+        endDate = new Date(endDateISO);
+      } else {
+        // Sensible default: 1 hour after start
+        endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+      }
+    }
 
     // Defensive check for invalid dates
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       alert("Invalid start or end date/time. Please check your inputs.");
-      console.warn("[createEvent] Invalid dates:", { startDate, endDate, startDateStr, endDateStr });
+      console.warn("[createEvent] Invalid dates:", { startDate, endDate });
       return;
+    }
+
+    // Recurrence logic
+    const recurring = document.getElementById("event-recurring")?.checked || false;
+    let recurrenceType = document.getElementById("recurrence-type")?.value || "";
+    let recurrenceCount = document.getElementById("limit-recurrences")?.checked ? Number.parseInt(document.getElementById("recurrence-count").value) || null : null;
+
+    // Custom recurrence for all-day: only years, months, days
+    let customYears = 0,
+      customMonths = 0,
+      customDays = 0,
+      customHours = 0;
+    if (recurrenceType === "custom") {
+      customYears = Number.parseInt(document.getElementById("custom-years")?.value) || 0;
+      customMonths = Number.parseInt(document.getElementById("custom-months")?.value) || 0;
+      customDays = Number.parseInt(document.getElementById("custom-days")?.value) || 0;
+      if (!allDay) {
+        customHours = Number.parseInt(document.getElementById("custom-hours")?.value) || 0;
+      }
     }
 
     const event = {
       id: Date.now().toString(),
       calendar: calendarValue,
-      title: document.getElementById("event-title").value,
-      description: document.getElementById("event-description").value,
-      location: document.getElementById("event-location").value,
-      startDate: startDate, // This is a UTC Date object
-      endDate: endDate, // This is a UTC Date object
-      recurring: document.getElementById("event-recurring").checked,
-      recurrenceType: document.getElementById("recurrence-type").value,
-      recurrenceCount: document.getElementById("limit-recurrences").checked ? Number.parseInt(document.getElementById("recurrence-count").value) : null,
+      title: document.getElementById("event-title").value || "(No Title)",
+      description: document.getElementById("event-description").value || "",
+      location: document.getElementById("event-location").value || "",
+      startDate: startDate,
+      endDate: endDate,
+      allDay: allDay,
+      recurring: recurring,
+      recurrenceType: recurrenceType,
+      recurrenceCount: recurrenceCount,
+      customYears: customYears,
+      customMonths: customMonths,
+      customDays: customDays,
+      customHours: customHours,
       timezone: tz,
     };
 
@@ -1035,15 +1642,56 @@ function observeCurrentDateResize() {
 function convertUTCToTZ(dateInput, tz) {
   // Accepts a Date object or ISO string
   const utcDate = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
-  // Format as locale string in target timezone, then parse as local date
-  const parts = utcDate.toLocaleString("en-US", { timeZone: tz }).split(/[\s,]+/);
-  // Parse year, month, day, hour, minute
-  const [month, day, year, time, meridian] = parts;
-  let [hour, minute] = time.split(":").map(Number);
-  if (meridian && meridian.toLowerCase().startsWith("p") && hour < 12) hour += 12;
-  if (meridian && meridian.toLowerCase().startsWith("a") && hour === 12) hour = 0;
-  // JS months are 0-based
-  return new Date(Number(year), Number(month) - 1, Number(day), hour, minute);
+  if (!(utcDate instanceof Date) || isNaN(utcDate.getTime())) {
+    console.error("[convertUTCToTZ] Invalid date input:", dateInput);
+    // Return a fallback date or null to prevent RangeError
+    return new Date(NaN);
+  }
+
+  // Use toLocaleString with explicit options for robust parsing
+  const opts = {
+    timeZone: tz,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+  };
+  const localeString = utcDate.toLocaleString("en-US", opts);
+
+  // Example output: "9/12/2025, 6:00 AM"
+  // Split into date and time
+  const [datePart, timePart] = localeString.split(", ");
+  if (!datePart || !timePart) {
+    console.error("[convertUTCToTZ] Unexpected locale string format:", localeString, "from", utcDate, "tz:", tz);
+    return new Date(NaN);
+  }
+
+  // Parse date
+  const [month, day, year] = datePart.split("/").map(Number);
+  // Parse time and meridian
+  const timeMatch = timePart.match(/^(\d{1,2}):(\d{2})\s*([APap][Mm])$/);
+  let hour = 0,
+    minute = 0;
+  if (timeMatch) {
+    hour = Number(timeMatch[1]);
+    minute = Number(timeMatch[2]);
+    const meridian = timeMatch[3].toLowerCase();
+    if (meridian === "pm" && hour < 12) hour += 12;
+    if (meridian === "am" && hour === 12) hour = 0;
+  } else {
+    // Fallback: try to parse hour/minute without meridian
+    const fallbackTime = timePart.split(":");
+    hour = Number(fallbackTime[0]) || 0;
+    minute = Number(fallbackTime[1]) || 0;
+  }
+
+  const result = new Date(year, month - 1, day, hour, minute);
+  if (isNaN(result.getTime())) {
+    console.error("[convertUTCToTZ] Failed to construct valid date from parsed parts:", { year, month, day, hour, minute }, "original:", dateInput, "tz:", tz, "localeString:", localeString);
+  }
+  return result;
 }
 
 // Initialize the calendar app when DOM is ready
