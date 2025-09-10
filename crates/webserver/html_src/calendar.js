@@ -573,17 +573,30 @@ class CalendarApp {
   }
 
   populateCalendarDropdowns() {
-    // Remove old selects if present
+    // Helper to detect mobile devices
+    function isMobileDevice() {
+      return typeof window !== "undefined" && (window.matchMedia("(pointer: coarse)").matches || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    }
+
+    // Remove old selects/containers if present
     const eventSelect = document.getElementById("event-calendar");
     const importSelect = document.getElementById("import-calendar");
+    const eventDiv = document.getElementById("event-calendar-container");
+    const importDiv = document.getElementById("import-calendar-container");
     let eventParent, importParent;
     if (eventSelect) {
       eventParent = eventSelect.parentElement;
       eventSelect.remove();
+    } else if (eventDiv) {
+      eventParent = eventDiv.parentElement;
+      eventDiv.remove();
     }
     if (importSelect) {
       importParent = importSelect.parentElement;
       importSelect.remove();
+    } else if (importDiv) {
+      importParent = importDiv.parentElement;
+      importDiv.remove();
     }
 
     // Prepare options for custom select
@@ -593,37 +606,78 @@ class CalendarApp {
       color: this.calendars[calendarKey].color,
     }));
 
-    // Create event calendar custom select
-    const eventDiv = document.createElement("div");
-    eventDiv.id = "event-calendar-container";
-    eventDiv.style.width = "100%";
-    eventParent.insertBefore(eventDiv, eventParent.firstChild.nextSibling);
+    // Render native select on mobile, custom select on desktop
+    if (isMobileDevice()) {
+      // Native select for event calendar
+      const eventSel = document.createElement("select");
+      eventSel.id = "event-calendar";
+      eventSel.style.width = "100%";
+      const placeholderOpt = document.createElement("option");
+      placeholderOpt.value = "";
+      placeholderOpt.disabled = true;
+      placeholderOpt.selected = true;
+      placeholderOpt.textContent = "Make a selection";
+      eventSel.appendChild(placeholderOpt);
+      calendarOptions.forEach((opt) => {
+        const o = document.createElement("option");
+        o.value = opt.value;
+        o.textContent = opt.label;
+        eventSel.appendChild(o);
+      });
+      eventParent.insertBefore(eventSel, eventParent.firstChild.nextSibling);
+      this.eventCalendarCustomSelect = null;
 
-    this.eventCalendarCustomSelect = new window.CustomColorSelect({
-      options: calendarOptions,
-      placeholder: "Make a selection",
-      value: "",
-      onChange: (val) => {
-        // Optionally handle change event for event calendar
-      },
-    });
-    eventDiv.appendChild(this.eventCalendarCustomSelect.el);
+      // Native select for import calendar
+      const importSel = document.createElement("select");
+      importSel.id = "import-calendar";
+      importSel.style.width = "100%";
+      const placeholderOpt2 = document.createElement("option");
+      placeholderOpt2.value = "";
+      placeholderOpt2.disabled = true;
+      placeholderOpt2.selected = true;
+      placeholderOpt2.textContent = "Make a selection";
+      importSel.appendChild(placeholderOpt2);
+      calendarOptions.forEach((opt) => {
+        const o = document.createElement("option");
+        o.value = opt.value;
+        o.textContent = opt.label;
+        importSel.appendChild(o);
+      });
+      importParent.insertBefore(importSel, importParent.firstChild.nextSibling);
+      this.importCalendarCustomSelect = null;
+    } else {
+      // Custom select for event calendar
+      const eventDiv = document.createElement("div");
+      eventDiv.id = "event-calendar-container";
+      eventDiv.style.width = "100%";
+      eventParent.insertBefore(eventDiv, eventParent.firstChild.nextSibling);
 
-    // Create import calendar custom select
-    const importDiv = document.createElement("div");
-    importDiv.id = "import-calendar-container";
-    importDiv.style.width = "100%";
-    importParent.insertBefore(importDiv, importParent.firstChild.nextSibling);
+      this.eventCalendarCustomSelect = new window.CustomColorSelect({
+        options: calendarOptions,
+        placeholder: "Make a selection",
+        value: "",
+        onChange: (val) => {
+          // Optionally handle change event for event calendar
+        },
+      });
+      eventDiv.appendChild(this.eventCalendarCustomSelect.el);
 
-    this.importCalendarCustomSelect = new window.CustomColorSelect({
-      options: calendarOptions,
-      placeholder: "Make a selection",
-      value: "",
-      onChange: (val) => {
-        // Optionally handle change event for import calendar
-      },
-    });
-    importDiv.appendChild(this.importCalendarCustomSelect.el);
+      // Custom select for import calendar
+      const importDiv = document.createElement("div");
+      importDiv.id = "import-calendar-container";
+      importDiv.style.width = "100%";
+      importParent.insertBefore(importDiv, importParent.firstChild.nextSibling);
+
+      this.importCalendarCustomSelect = new window.CustomColorSelect({
+        options: calendarOptions,
+        placeholder: "Make a selection",
+        value: "",
+        onChange: (val) => {
+          // Optionally handle change event for import calendar
+        },
+      });
+      importDiv.appendChild(this.importCalendarCustomSelect.el);
+    }
   }
 
   // Calendar checkbox logic for both tools
